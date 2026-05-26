@@ -335,6 +335,7 @@
 import { app, BrowserWindow, desktopCapturer, ipcMain, dialog, shell } from 'electron';
 import fs from 'fs';
 import path from 'path';
+import http from 'http';
 
 app.disableHardwareAcceleration();
 
@@ -522,6 +523,54 @@ async function createWindow() {
       return false;
     }
   });
+
+  // Handle Google OAuth — open in system browser, catch callback locally
+  let oauthCallbackServer: http.Server | null = null;
+  ipcMain.handle('start-google-oauth', async (_event, url: string) => {
+  return new Promise<string>((resolve, reject) => {
+    // Start a one-time local HTTP server on port 5174 to catch the callback
+    oauthCallbackServer = http.createServer((req, res) => {
+      const fullUrl = new URL(req.url!, 'http://localhost:5174');
+      const code  = fullUrl.searchParams.get('code');
+      const state = fullUrl.searchParams.get('state');
+
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(`
+        <html><body style="background:#080809;color:white;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+          <div style="text-align:center">
+            <h2>✅ Signed in successfully</h2>
+            <p style="color:rgba(255,255,255,0.4)">You can close this tab and return to StreamLink</p>
+          </div>
+        </html>
+      `);
+
+      if (oauthCallbackServer) {
+        oauthCallbackServer.close();
+        oauthCallbackServer = null;
+      }
+
+      if (code && state === 'google_oauth') {
+        resolve(code);
+      } else {
+        reject(new Error('OAuth callback missing code'));
+      }
+    });
+
+    oauthCallbackServer.listen(5174, () => {
+      // Open Google consent screen in system browser
+      shell.openExternal(url);
+    });
+
+    // Timeout after 5 minutes
+    setTimeout(() => {
+      if (oauthCallbackServer) {
+        oauthCallbackServer.close();
+        oauthCallbackServer = null;
+      }
+      reject(new Error('OAuth timeout'));
+    }, 5 * 60 * 1000);
+  });
+});
 
   // --- 11. Load app ---
   if (isProd) {
