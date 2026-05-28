@@ -13,7 +13,7 @@
 
 
 // frontend/src/main.tsx
-import React from 'react';
+//import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { AuthProvider } from './auth/AuthProvider';
 import App from './App';

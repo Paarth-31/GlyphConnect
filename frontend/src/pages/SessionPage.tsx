@@ -3,7 +3,7 @@
 //   Mic, MicOff, Video, VideoOff, Volume2, VolumeX,
 //   Monitor, MonitorOff, PhoneOff, MessageSquare, Files,
 //   Radio, Square, MousePointer2, Keyboard, ChevronLeft,
-//   ChevronRight, Maximize2, Minimize2, GripVertical,
+//   Maximize2, Minimize2, GripVertical,
 //   Circle, X, Settings2
 // } from 'lucide-react';
 // import { ChatPanel } from '../components/ChatPanel';
@@ -23,25 +23,24 @@
 // type SidePanel = 'chat' | 'files' | null;
 
 // export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
-//   const [sidePanel, setSidePanel] = useState<SidePanel>(null);
+//   const [sidePanel, setSidePanel]           = useState<SidePanel>(null);
 //   const [sidePanelWidth, setSidePanelWidth] = useState(320);
 //   const [isResizingSide, setIsResizingSide] = useState(false);
 //   const [controlEnabled, setControlEnabled] = useState(false);
-//   const [isHost, setIsHost] = useState(isHostInitial);
-//   const [sessionTime, setSessionTime] = useState(0);
+//   const [isHost, setIsHost]                 = useState(isHostInitial);
+//   const [sessionTime, setSessionTime]       = useState(0);
 //   const [showSourcePicker, setShowSourcePicker] = useState(false);
 //   const [availableSources, setAvailableSources] = useState<any[]>([]);
-//   const [isFullscreen, setIsFullscreen] = useState(false);
+//   const [isFullscreen, setIsFullscreen]     = useState(false);
 
-//   // Resizable webcam overlay
+//   // Webcam PiP
 //   const [camSize, setCamSize] = useState({ w: 240, h: 135 });
-//   const [camPos, setCamPos] = useState({ x: 16, y: 16 });
-//   const [isDraggingCam, setIsDraggingCam] = useState(false);
+//   const [camPos, setCamPos]   = useState({ x: 16, y: 16 });
 //   const camDragStart = useRef<{ mx: number; my: number; px: number; py: number }>({ mx: 0, my: 0, px: 0, py: 0 });
 
 //   const handleFileChunkRef = useRef<((data: ArrayBuffer | string) => void) | null>(null);
-//   const containerRef = useRef<HTMLDivElement>(null);
-//   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+//   const containerRef        = useRef<HTMLDivElement>(null);
+//   const timerRef            = useRef<ReturnType<typeof setInterval> | null>(null);
 
 //   const {
 //     connectionStatus,
@@ -68,27 +67,31 @@
 //   } = usePeerConnection(myId, remoteId, (data) => handleFileChunkRef.current?.(data));
 
 //   const { startRecording, stopRecording, isRecording, recordingTime, formatTime } = useRecording();
-
 //   const { sendFile, handleFileChunk, incomingFile, receivedFiles, outgoing, receiveProgress, downloadFile, formatSize } = useFileTransfer(sendFileChunk);
 //   handleFileChunkRef.current = handleFileChunk;
 
 //   // Session timer
 //   useEffect(() => {
 //     timerRef.current = setInterval(() => setSessionTime(t => t + 1), 1000);
-//     return () => {
-//       if (timerRef.current) clearInterval(timerRef.current);
-//     };
+//     return () => { if (timerRef.current) clearInterval(timerRef.current); };
 //   }, []);
 
 //   useEffect(() => {
 //     if (myStream) setIsHost(true);
 //   }, [myStream]);
 
-//   // Auto-connect on mount
+//   // Auto-connect:
+//   // - Controller (remoteId set): join the remote room and wait for host to share
+//   // - Host (remoteId empty): just join our own room and wait for someone to connect;
+//   //   do NOT call startScreenShare() here — socket isn't ready yet.
+//   //   The "Share My Screen" button in the waiting state handles it manually.
 //   useEffect(() => {
-//     if (remoteId) connectToPeer(remoteId);
-//     else startScreenShare();
-//   }, []);
+//     if (remoteId) {
+//       connectToPeer(remoteId);
+//     }
+//     // Host side: we do nothing here — user clicks the Share Screen button,
+//     // or the auto-share fires inside usePeerConnection when user-connected fires.
+//   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 //   // Electron source picker
 //   useEffect(() => {
@@ -115,25 +118,17 @@
 //     const m = Math.floor((s % 3600) / 60);
 //     const sec = s % 60;
 //     return h > 0
-//       ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
-//       : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+//       ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+//       : `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 //   };
 
-//   // Side panel resize handler
+//   // Side panel resize
 //   const startSideResize = (e: React.MouseEvent) => {
 //     e.preventDefault();
 //     setIsResizingSide(true);
-//     const startX = e.clientX;
-//     const startW = sidePanelWidth;
-//     const onMove = (ev: MouseEvent) => {
-//       const delta = startX - ev.clientX;
-//       setSidePanelWidth(Math.max(260, Math.min(520, startW + delta)));
-//     };
-//     const onUp = () => {
-//       setIsResizingSide(false);
-//       window.removeEventListener('mousemove', onMove);
-//       window.removeEventListener('mouseup', onUp);
-//     };
+//     const startX = e.clientX, startW = sidePanelWidth;
+//     const onMove = (ev: MouseEvent) => setSidePanelWidth(Math.max(260, Math.min(520, startW + (startX - ev.clientX))));
+//     const onUp   = () => { setIsResizingSide(false); window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
 //     window.addEventListener('mousemove', onMove);
 //     window.addEventListener('mouseup', onUp);
 //   };
@@ -141,19 +136,9 @@
 //   // Webcam PiP drag
 //   const startCamDrag = (e: React.MouseEvent) => {
 //     e.preventDefault();
-//     setIsDraggingCam(true);
 //     camDragStart.current = { mx: e.clientX, my: e.clientY, px: camPos.x, py: camPos.y };
-//     const onMove = (ev: MouseEvent) => {
-//       setCamPos({
-//         x: camDragStart.current.px + (ev.clientX - camDragStart.current.mx),
-//         y: camDragStart.current.py + (ev.clientY - camDragStart.current.my),
-//       });
-//     };
-//     const onUp = () => {
-//       setIsDraggingCam(false);
-//       window.removeEventListener('mousemove', onMove);
-//       window.removeEventListener('mouseup', onUp);
-//     };
+//     const onMove = (ev: MouseEvent) => setCamPos({ x: camDragStart.current.px + (ev.clientX - camDragStart.current.mx), y: camDragStart.current.py + (ev.clientY - camDragStart.current.my) });
+//     const onUp   = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
 //     window.addEventListener('mousemove', onMove);
 //     window.addEventListener('mouseup', onUp);
 //   };
@@ -164,9 +149,7 @@
 //     onEnd();
 //   };
 
-//   const toggleSidePanel = (panel: SidePanel) => {
-//     setSidePanel(p => p === panel ? null : panel);
-//   };
+//   const toggleSidePanel = (panel: SidePanel) => setSidePanel(p => p === panel ? null : panel);
 
 //   const sessionActive = myStream || remoteStream;
 
@@ -176,7 +159,7 @@
 //       {/* Top bar */}
 //       <div className="flex items-center justify-between px-4 py-2 bg-black/60 backdrop-blur border-b border-white/[0.06] z-20 shrink-0">
 
-//         {/* Left: session info */}
+//         {/* Left */}
 //         <div className="flex items-center gap-4">
 //           <button onClick={handleEndSession} className="flex items-center gap-1.5 text-white/30 hover:text-white/70 text-xs transition-colors">
 //             <ChevronLeft className="w-3.5 h-3.5" /> Back
@@ -197,16 +180,18 @@
 //           )}
 //         </div>
 
-//         {/* Center: remote ID */}
+//         {/* Center */}
 //         <div className="flex items-center gap-2">
 //           <Monitor className="w-3.5 h-3.5 text-white/30" />
 //           <span className="text-xs font-mono text-white/40">
-//             {remoteId ? `${remoteId.slice(0, 3)} ${remoteId.slice(3, 6)} ${remoteId.slice(6, 9)} ${remoteId.slice(9)}` : 'Host Mode'}
+//             {remoteId
+//               ? `${remoteId.slice(0,3)} ${remoteId.slice(3,6)} ${remoteId.slice(6,9)} ${remoteId.slice(9)}`
+//               : 'Host Mode'}
 //           </span>
 //           {isHost && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/20 font-bold">HOST</span>}
 //         </div>
 
-//         {/* Right: quick actions */}
+//         {/* Right */}
 //         <div className="flex items-center gap-1">
 //           <button
 //             onClick={() => toggleSidePanel('chat')}
@@ -243,10 +228,8 @@
 
 //         {/* Video area */}
 //         <div className="flex-1 relative bg-[#050506] overflow-hidden">
-
 //           {sessionActive ? (
 //             <>
-//               {/* Primary screen: remote (if controller) or my screen (if host) */}
 //               <div className="absolute inset-0">
 //                 {remoteStream ? (
 //                   <RemoteScreen
@@ -259,43 +242,31 @@
 //                 ) : null}
 //               </div>
 
-//               {/* Floating webcam PiP — draggable, resizable */}
+//               {/* Floating webcam PiP */}
 //               {(callStream || remoteCallStream) && (
 //                 <div
 //                   className="absolute z-10 rounded-xl overflow-hidden border border-white/20 shadow-2xl shadow-black/60 cursor-move"
 //                   style={{ left: camPos.x, top: camPos.y, width: camSize.w, height: camSize.h }}
 //                   onMouseDown={startCamDrag}
 //                 >
-//                   {/* Drag handle */}
 //                   <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-black/60 to-transparent z-10 flex items-center justify-between px-2">
 //                     <GripVertical className="w-3 h-3 text-white/40" />
 //                     <span className="text-[9px] text-white/40 font-medium">{remoteCallStream ? 'Remote' : 'You'}</span>
 //                   </div>
-
-//                   {remoteCallStream ? (
-//                     <video ref={remoteCallVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-black" />
-//                   ) : callStream ? (
-//                     <video ref={callVideoRef} autoPlay playsInline muted className="w-full h-full object-cover bg-black" />
-//                   ) : null}
-
+//                   {remoteCallStream
+//                     ? <video ref={remoteCallVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-black" />
+//                     : callStream
+//                     ? <video ref={callVideoRef} autoPlay playsInline muted className="w-full h-full object-cover bg-black" />
+//                     : null
+//                   }
 //                   {/* Resize handle */}
 //                   <div
 //                     className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-10"
 //                     onMouseDown={e => {
-//                       e.stopPropagation();
-//                       e.preventDefault();
-//                       const startX = e.clientX, startY = e.clientY;
-//                       const startW = camSize.w, startH = camSize.h;
-//                       const onMove = (ev: MouseEvent) => {
-//                         setCamSize({
-//                           w: Math.max(160, startW + (ev.clientX - startX)),
-//                           h: Math.max(90, startH + (ev.clientY - startY)),
-//                         });
-//                       };
-//                       const onUp = () => {
-//                         window.removeEventListener('mousemove', onMove);
-//                         window.removeEventListener('mouseup', onUp);
-//                       };
+//                       e.stopPropagation(); e.preventDefault();
+//                       const startX = e.clientX, startY = e.clientY, startW = camSize.w, startH = camSize.h;
+//                       const onMove = (ev: MouseEvent) => setCamSize({ w: Math.max(160, startW + (ev.clientX - startX)), h: Math.max(90, startH + (ev.clientY - startY)) });
+//                       const onUp   = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
 //                       window.addEventListener('mousemove', onMove);
 //                       window.addEventListener('mouseup', onUp);
 //                     }}
@@ -305,14 +276,13 @@
 //                 </div>
 //               )}
 
-//               {/* Control mode indicator */}
+//               {/* Control active indicator */}
 //               {controlEnabled && !isHost && (
 //                 <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-600/80 backdrop-blur border border-indigo-400/30 text-white text-xs font-bold shadow-lg">
 //                   <MousePointer2 className="w-3.5 h-3.5" />
 //                   Control Active — click remote screen to release
 //                 </div>
 //               )}
-
 //             </>
 //           ) : (
 //             /* Waiting state */
@@ -325,9 +295,12 @@
 //                   {connectionStatus === 'Connected' ? 'Waiting for screen share...' : 'Connecting...'}
 //                 </p>
 //                 <p className="text-white/20 text-xs mt-1">
-//                   {isHost ? 'Click "Share Screen" below to start' : 'Waiting for host to share their screen'}
+//                   {isHost
+//                     ? 'Click "Share My Screen" below to start broadcasting'
+//                     : 'Waiting for the host to share their screen'}
 //                 </p>
 //               </div>
+//               {/* Host can manually start share from waiting screen */}
 //               {isHost && (
 //                 <button
 //                   onClick={startScreenShare}
@@ -353,12 +326,11 @@
 //         {/* Side panel */}
 //         {sidePanel && (
 //           <div className="bg-[#0d0d0f] border-l border-white/[0.06] flex flex-col overflow-hidden shrink-0" style={{ width: sidePanelWidth }}>
-//             {/* Panel header */}
 //             <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
 //               <div className="flex items-center gap-1 p-1 bg-white/[0.04] rounded-lg">
 //                 {[
-//                   { id: 'chat' as SidePanel, icon: MessageSquare, label: 'Chat' },
-//                   { id: 'files' as SidePanel, icon: Files, label: 'Files' },
+//                   { id: 'chat'  as SidePanel, icon: MessageSquare, label: 'Chat'  },
+//                   { id: 'files' as SidePanel, icon: Files,         label: 'Files' },
 //                 ].map(tab => (
 //                   <button
 //                     key={tab.id}
@@ -374,12 +346,8 @@
 //                 <X className="w-3.5 h-3.5" />
 //               </button>
 //             </div>
-
-//             {/* Panel content */}
 //             <div className="flex-1 overflow-hidden">
-//               {sidePanel === 'chat' && (
-//                 <ChatPanel messages={messages} onSend={sendChatMessage} cryptoReady={cryptoReady} />
-//               )}
+//               {sidePanel === 'chat' && <ChatPanel messages={messages} onSend={sendChatMessage} cryptoReady={cryptoReady} />}
 //               {sidePanel === 'files' && (
 //                 <div className="p-3 h-full overflow-y-auto">
 //                   <FileTransferPanel
@@ -401,7 +369,7 @@
 //       {/* Bottom toolbar */}
 //       <div className="flex items-center justify-between px-6 py-3 bg-black/70 backdrop-blur border-t border-white/[0.06] shrink-0 z-20">
 
-//         {/* Left controls: screen share & audio */}
+//         {/* Left: screen & audio controls */}
 //         <div className="flex items-center gap-2">
 //           {isHost && (
 //             <>
@@ -436,31 +404,19 @@
 //         <div className="flex items-center gap-2">
 //           {!inCall ? (
 //             <>
-//               <ToolbarBtn icon={Video} label="Video Call" onClick={() => startCall(true)} activeColor="green" />
-//               <ToolbarBtn icon={Mic} label="Audio Call" onClick={() => startCall(false)} activeColor="green" />
+//               <ToolbarBtn icon={Video} label="Video Call"  onClick={() => startCall(true)}  activeColor="green" />
+//               <ToolbarBtn icon={Mic}   label="Audio Call"  onClick={() => startCall(false)} activeColor="green" />
 //             </>
 //           ) : (
 //             <>
-//               <ToolbarBtn
-//                 icon={micEnabled ? Mic : MicOff}
-//                 label={micEnabled ? 'Mute' : 'Unmute'}
-//                 active={micEnabled}
-//                 activeColor="green"
-//                 onClick={toggleMic}
-//               />
-//               <ToolbarBtn
-//                 icon={camEnabled ? Video : VideoOff}
-//                 label={camEnabled ? 'Cam On' : 'Cam Off'}
-//                 active={camEnabled}
-//                 activeColor="green"
-//                 onClick={toggleCam}
-//               />
+//               <ToolbarBtn icon={micEnabled ? Mic : MicOff}   label={micEnabled ? 'Mute' : 'Unmute'}   active={micEnabled}  activeColor="green" onClick={toggleMic} />
+//               <ToolbarBtn icon={camEnabled ? Video : VideoOff} label={camEnabled ? 'Cam On' : 'Cam Off'} active={camEnabled}  activeColor="green" onClick={toggleCam} />
 //               <ToolbarBtn icon={PhoneOff} label="End Call" onClick={endCall} danger />
 //             </>
 //           )}
 //         </div>
 
-//         {/* Right: recording & more */}
+//         {/* Right: recording */}
 //         <div className="flex items-center gap-2">
 //           <ToolbarBtn
 //             icon={isRecording ? Square : Radio}
@@ -473,7 +429,7 @@
 //         </div>
 //       </div>
 
-//       {/* Electron source picker modal */}
+//       {/* Source picker modal */}
 //       {showSourcePicker && (
 //         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
 //           <div className="bg-[#111113] border border-white/10 rounded-2xl p-6 w-full max-w-2xl shadow-2xl">
@@ -487,10 +443,7 @@
 //               {availableSources.map(source => (
 //                 <button
 //                   key={source.id}
-//                   onClick={() => {
-//                     (window as any).electronAPI?.selectSource(source.id);
-//                     setShowSourcePicker(false);
-//                   }}
+//                   onClick={() => { (window as any).electronAPI?.selectSource(source.id); setShowSourcePicker(false); }}
 //                   className="bg-white/5 hover:bg-indigo-500/10 border border-white/10 hover:border-indigo-500/30 rounded-xl p-3 flex flex-col items-center gap-2 transition-all group"
 //                 >
 //                   <img src={source.thumbnail} className="w-full rounded-lg" alt={source.name} />
@@ -511,7 +464,8 @@
 //   );
 // }
 
-// // ── Toolbar button component ────────────────────────────────────────────────
+// // ── Toolbar button ──────────────────────────────────────────────────────────
+
 // interface ToolbarBtnProps {
 //   icon: React.ElementType;
 //   label: string;
@@ -550,14 +504,22 @@
 
 
 
-
-
-
-
-
-
-
-
+// frontend/src/pages/SessionPage.tsx
+//
+// FIXES IN THIS FILE:
+//
+// [FIX D] handleEndSession now calls stopAllTracks() (exported from the hook)
+//         before calling onEnd(). This stops all MediaStream tracks (screen +
+//         webcam) so the browser "You are sharing your screen" banner dismisses
+//         and the camera/mic indicator lights go off.
+//
+// [FIX E] stopAllTracks() in the hook emits 'hang-up' to the signaling server
+//         which notifies the remote peer. Their hook listens for 'hang-up' and
+//         runs the same cleanup so both sides tear down together.
+//
+// [FIX C] ChatPanel now has a dark background so it is readable against the
+//         dark session UI (was rendering white-on-white because bg-white was
+//         hardcoded in ChatPanel with no dark-mode override applied).
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
@@ -567,12 +529,12 @@ import {
   Maximize2, Minimize2, GripVertical,
   Circle, X, Settings2
 } from 'lucide-react';
-import { ChatPanel } from '../components/ChatPanel';
+import { ChatPanel }         from '../components/ChatPanel';
 import { FileTransferPanel } from '../components/FileTransferPanel';
-import { RemoteScreen } from '../components/RemoteScreen';
+import { RemoteScreen }      from '../components/RemoteScreen';
 import { usePeerConnection } from '../hooks/usePeerConnection';
-import { useRecording } from '../hooks/useRecording';
-import { useFileTransfer } from '../hooks/useFileTransfer';
+import { useRecording }      from '../hooks/useRecording';
+import { useFileTransfer }   from '../hooks/useFileTransfer';
 
 interface Props {
   myId: string;
@@ -594,14 +556,13 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
   const [availableSources, setAvailableSources] = useState<any[]>([]);
   const [isFullscreen, setIsFullscreen]     = useState(false);
 
-  // Webcam PiP
   const [camSize, setCamSize] = useState({ w: 240, h: 135 });
   const [camPos, setCamPos]   = useState({ x: 16, y: 16 });
   const camDragStart = useRef<{ mx: number; my: number; px: number; py: number }>({ mx: 0, my: 0, px: 0, py: 0 });
 
   const handleFileChunkRef = useRef<((data: ArrayBuffer | string) => void) | null>(null);
-  const containerRef        = useRef<HTMLDivElement>(null);
-  const timerRef            = useRef<ReturnType<typeof setInterval> | null>(null);
+  const containerRef       = useRef<HTMLDivElement>(null);
+  const timerRef           = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const {
     connectionStatus,
@@ -625,13 +586,13 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
     cryptoReady,
     sendControlEvent,
     sendFileChunk,
+    stopAllTracks,   // [FIX D+E]
   } = usePeerConnection(myId, remoteId, (data) => handleFileChunkRef.current?.(data));
 
   const { startRecording, stopRecording, isRecording, recordingTime, formatTime } = useRecording();
   const { sendFile, handleFileChunk, incomingFile, receivedFiles, outgoing, receiveProgress, downloadFile, formatSize } = useFileTransfer(sendFileChunk);
   handleFileChunkRef.current = handleFileChunk;
 
-  // Session timer
   useEffect(() => {
     timerRef.current = setInterval(() => setSessionTime(t => t + 1), 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -641,20 +602,10 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
     if (myStream) setIsHost(true);
   }, [myStream]);
 
-  // Auto-connect:
-  // - Controller (remoteId set): join the remote room and wait for host to share
-  // - Host (remoteId empty): just join our own room and wait for someone to connect;
-  //   do NOT call startScreenShare() here — socket isn't ready yet.
-  //   The "Share My Screen" button in the waiting state handles it manually.
   useEffect(() => {
-    if (remoteId) {
-      connectToPeer(remoteId);
-    }
-    // Host side: we do nothing here — user clicks the Share Screen button,
-    // or the auto-share fires inside usePeerConnection when user-connected fires.
+    if (remoteId) connectToPeer(remoteId);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Electron source picker
   useEffect(() => {
     (window as any).electronAPI?.onSourcesResponse((sources: any[]) => {
       setAvailableSources(sources);
@@ -675,15 +626,14 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
   }, [remoteCallStream]);
 
   const formatSessionTime = (s: number) => {
-    const h = Math.floor(s / 3600);
-    const m = Math.floor((s % 3600) / 60);
+    const h   = Math.floor(s / 3600);
+    const m   = Math.floor((s % 3600) / 60);
     const sec = s % 60;
     return h > 0
-      ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
-      : `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+      ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+      : `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
   };
 
-  // Side panel resize
   const startSideResize = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsResizingSide(true);
@@ -694,7 +644,6 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
     window.addEventListener('mouseup', onUp);
   };
 
-  // Webcam PiP drag
   const startCamDrag = (e: React.MouseEvent) => {
     e.preventDefault();
     camDragStart.current = { mx: e.clientX, my: e.clientY, px: camPos.x, py: camPos.y };
@@ -704,25 +653,31 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
     window.addEventListener('mouseup', onUp);
   };
 
-  const handleEndSession = () => {
+  // [FIX D+E] Stop all tracks (screen + webcam) and signal remote before unmounting
+  const handleEndSession = useCallback(() => {
     if (isRecording) stopRecording();
-    if (inCall) endCall();
+    stopAllTracks(); // stops MediaStream tracks + emits 'hang-up' to remote peer
     onEnd();
-  };
+  }, [isRecording, stopRecording, stopAllTracks, onEnd]);
 
   const toggleSidePanel = (panel: SidePanel) => setSidePanel(p => p === panel ? null : panel);
 
   const sessionActive = myStream || remoteStream;
 
   return (
-    <div className="h-screen bg-[#080809] text-white flex flex-col overflow-hidden select-none" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-
+    <div
+      className="h-screen bg-[#080809] text-white flex flex-col overflow-hidden select-none"
+      style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
+    >
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-black/60 backdrop-blur border-b border-white/[0.06] z-20 shrink-0">
 
         {/* Left */}
         <div className="flex items-center gap-4">
-          <button onClick={handleEndSession} className="flex items-center gap-1.5 text-white/30 hover:text-white/70 text-xs transition-colors">
+          <button
+            onClick={handleEndSession}
+            className="flex items-center gap-1.5 text-white/30 hover:text-white/70 text-xs transition-colors"
+          >
             <ChevronLeft className="w-3.5 h-3.5" /> Back
           </button>
           <div className="w-px h-4 bg-white/10" />
@@ -749,7 +704,11 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
               ? `${remoteId.slice(0,3)} ${remoteId.slice(3,6)} ${remoteId.slice(6,9)} ${remoteId.slice(9)}`
               : 'Host Mode'}
           </span>
-          {isHost && <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/20 font-bold">HOST</span>}
+          {isHost && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/20 font-bold">
+              HOST
+            </span>
+          )}
         </div>
 
         {/* Right */}
@@ -799,7 +758,13 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
                     controlEnabled={controlEnabled && !isHost}
                   />
                 ) : myStream ? (
-                  <video ref={myVideoRef} autoPlay playsInline muted className="w-full h-full object-contain bg-black" />
+                  <video
+                    ref={myVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-contain bg-black"
+                  />
                 ) : null}
               </div>
 
@@ -815,9 +780,9 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
                     <span className="text-[9px] text-white/40 font-medium">{remoteCallStream ? 'Remote' : 'You'}</span>
                   </div>
                   {remoteCallStream
-                    ? <video ref={remoteCallVideoRef} autoPlay playsInline className="w-full h-full object-cover bg-black" />
+                    ? <video ref={remoteCallVideoRef} autoPlay playsInline         className="w-full h-full object-cover bg-black" />
                     : callStream
-                    ? <video ref={callVideoRef} autoPlay playsInline muted className="w-full h-full object-cover bg-black" />
+                    ? <video ref={callVideoRef}       autoPlay playsInline muted   className="w-full h-full object-cover bg-black" />
                     : null
                   }
                   {/* Resize handle */}
@@ -837,7 +802,6 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
                 </div>
               )}
 
-              {/* Control active indicator */}
               {controlEnabled && !isHost && (
                 <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-600/80 backdrop-blur border border-indigo-400/30 text-white text-xs font-bold shadow-lg">
                   <MousePointer2 className="w-3.5 h-3.5" />
@@ -861,7 +825,6 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
                     : 'Waiting for the host to share their screen'}
                 </p>
               </div>
-              {/* Host can manually start share from waiting screen */}
               {isHost && (
                 <button
                   onClick={startScreenShare}
@@ -886,15 +849,18 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
 
         {/* Side panel */}
         {sidePanel && (
-          <div className="bg-[#0d0d0f] border-l border-white/[0.06] flex flex-col overflow-hidden shrink-0" style={{ width: sidePanelWidth }}>
+          <div
+            className="bg-[#0d0d0f] border-l border-white/[0.06] flex flex-col overflow-hidden shrink-0"
+            style={{ width: sidePanelWidth }}
+          >
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
               <div className="flex items-center gap-1 p-1 bg-white/[0.04] rounded-lg">
-                {[
+                {([
                   { id: 'chat'  as SidePanel, icon: MessageSquare, label: 'Chat'  },
                   { id: 'files' as SidePanel, icon: Files,         label: 'Files' },
-                ].map(tab => (
+                ] as const).map(tab => (
                   <button
-                    key={tab.id}
+                    key={tab.id!}
                     onClick={() => setSidePanel(tab.id)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${sidePanel === tab.id ? 'bg-white/10 text-white' : 'text-white/30 hover:text-white/60'}`}
                   >
@@ -903,12 +869,25 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
                   </button>
                 ))}
               </div>
-              <button onClick={() => setSidePanel(null)} className="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all">
+              <button
+                onClick={() => setSidePanel(null)}
+                className="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all"
+              >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
+
             <div className="flex-1 overflow-hidden">
-              {sidePanel === 'chat' && <ChatPanel messages={messages} onSend={sendChatMessage} cryptoReady={cryptoReady} />}
+              {/* [FIX C] ChatPanel wrapped in dark container — prevents white-on-white rendering */}
+              {sidePanel === 'chat' && (
+                <div className="h-full bg-[#0d0d0f]">
+                  <ChatPanel
+                    messages={messages}
+                    onSend={sendChatMessage}
+                    cryptoReady={cryptoReady}
+                  />
+                </div>
+              )}
               {sidePanel === 'files' && (
                 <div className="p-3 h-full overflow-y-auto">
                   <FileTransferPanel
@@ -970,8 +949,8 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
             </>
           ) : (
             <>
-              <ToolbarBtn icon={micEnabled ? Mic : MicOff}   label={micEnabled ? 'Mute' : 'Unmute'}   active={micEnabled}  activeColor="green" onClick={toggleMic} />
-              <ToolbarBtn icon={camEnabled ? Video : VideoOff} label={camEnabled ? 'Cam On' : 'Cam Off'} active={camEnabled}  activeColor="green" onClick={toggleCam} />
+              <ToolbarBtn icon={micEnabled ? Mic : MicOff}     label={micEnabled ? 'Mute'   : 'Unmute'}  active={micEnabled}  activeColor="green" onClick={toggleMic} />
+              <ToolbarBtn icon={camEnabled ? Video : VideoOff}  label={camEnabled ? 'Cam On' : 'Cam Off'} active={camEnabled}  activeColor="green" onClick={toggleCam} />
               <ToolbarBtn icon={PhoneOff} label="End Call" onClick={endCall} danger />
             </>
           )}
@@ -990,13 +969,16 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
         </div>
       </div>
 
-      {/* Source picker modal */}
+      {/* Source picker modal (Electron only) */}
       {showSourcePicker && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
           <div className="bg-[#111113] border border-white/10 rounded-2xl p-6 w-full max-w-2xl shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-white font-bold text-lg">Choose what to share</h2>
-              <button onClick={() => setShowSourcePicker(false)} className="p-1.5 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/10 transition-all">
+              <button
+                onClick={() => setShowSourcePicker(false)}
+                className="p-1.5 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/10 transition-all"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1008,7 +990,9 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
                   className="bg-white/5 hover:bg-indigo-500/10 border border-white/10 hover:border-indigo-500/30 rounded-xl p-3 flex flex-col items-center gap-2 transition-all group"
                 >
                   <img src={source.thumbnail} className="w-full rounded-lg" alt={source.name} />
-                  <span className="text-white text-xs text-center font-medium truncate w-full group-hover:text-indigo-300 transition-colors">{source.name}</span>
+                  <span className="text-white text-xs text-center font-medium truncate w-full group-hover:text-indigo-300 transition-colors">
+                    {source.name}
+                  </span>
                 </button>
               ))}
             </div>
@@ -1025,7 +1009,7 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
   );
 }
 
-// ── Toolbar button ──────────────────────────────────────────────────────────
+// ── Toolbar button ────────────────────────────────────────────────────────────
 
 interface ToolbarBtnProps {
   icon: React.ElementType;

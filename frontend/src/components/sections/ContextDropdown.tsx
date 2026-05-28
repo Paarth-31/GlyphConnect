@@ -1,4 +1,4 @@
-import { Monitor, Link, Heart, FileEdit, Trash2, X } from "lucide-react";
+import { Monitor, Link, Heart, FileEdit, Trash2} from "lucide-react";
 
 export const ContextDropdown = () => {
   return (

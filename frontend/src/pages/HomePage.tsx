@@ -60,7 +60,7 @@ export function recordLocalSession(remoteId: string) {
 
 export function HomePage({ onStartSession, onNavigate }: Props) {
   const { isAuthenticated, user, logout } = useAuth();
-  const skippedAuth = sessionStorage.getItem('rda_skip_auth') === '1';
+  //const skippedAuth = sessionStorage.getItem('rda_skip_auth') === '1';
 
   const [myId, setMyId]         = useState(generateId);
   const [remoteId, setRemoteId] = useState('');

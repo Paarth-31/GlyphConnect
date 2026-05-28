@@ -1,5 +1,8 @@
 {
-  "name": "RDA",
+  "name": "GlyphConnect",
+  "version": "1.0.0",
+  "description": "P2P remote desktop application with E2E encrypted screen sharing, chat and file transfer",
+  "author": "Paarth & Aayushi",
   "private": true,
   "main": "backend/dist/main.js",
   "scripts": {
@@ -7,13 +10,39 @@
     "dev:frontend": "cd frontend && npm run dev",
     "dev:desktop": "wait-on http://localhost:5173 && npm run dev --prefix backend",
     "dev:signaling": "cd signaling-server && npm run dev",
+    "build:win": "electron-builder --win portable",
+    "build:linux": "electron-builder --linux AppImage",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../signaling-server && npm install"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1",
     "wait-on": "^7.2.0"
   },
-  "dependencies": {
-    "all": "^0.0.0"
+  "build": {
+    "appId": "com.glyphconnect.GlyphConnect",
+    "productName": "GlyphConnect",
+    "extraMetadata": {
+      "main": "backend/dist/main.js"
+    },
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "backend/dist/**/*",
+      "frontend/dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Network"
+    }
   }
 }

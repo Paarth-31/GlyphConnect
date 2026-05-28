@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import {
   Monitor, Mail, Lock, User, Eye, EyeOff,
-  ArrowRight, Loader2, AlertCircle, Chrome
+  ArrowRight, Loader2, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
 

@@ -9,6 +9,7 @@ import { authApi, setTokens, clearTokens, getToken } from '../services/api';
 export interface AuthUser {
   id: string;
   email: string;
+  name?: string;
   display_name: string;
   avatar_url: string | null;
   role: string;
@@ -61,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser]                       = useState<AuthUser | null>(null);
   const [error, setError]                     = useState<string | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
 // Add to context value and type if you want to show a spinner
 
   // ── On mount: restore session from localStorage ───────────────────────
