@@ -1134,7 +1134,7 @@ export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
     messages,
     sendChatMessage,
     cryptoReady,
-    amInitiator,       // [FIX 3] true only on host side
+    // amInitiator,       // [FIX 3] true only on host side
     controlGranted,    // [FIX 4]
     grantControl,      // [FIX 4]
     revokeControl,     // [FIX 4]
