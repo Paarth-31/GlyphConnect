@@ -1,7 +1,17 @@
 // // frontend/src/services/api.ts
-// // Central API client — reads JWT from localStorage, attaches to every request.
+// //
+// // FIX: The old fallback was 'http://localhost:8080'.
+// // When the app is served from GitHub Pages (HTTPS), Chrome's
+// // "Private Network Access" policy hard-blocks any fetch from a
+// // public HTTPS origin to a loopback address — that's the
+// // "Permission was denied for this request to access the loopback
+// // address space" error you saw.
+// //
+// // Fix: fallback is now the production signaling server URL.
+// // For local dev, create frontend/.env with:
+// //   VITE_SERVER_URL=http://localhost:8080
 
-// const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:8080';
+// const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'https://rda-signaling.duckdns.org';
 
 // // ── Token helpers ─────────────────────────────────────────────────────────
 
@@ -25,15 +35,9 @@
 
 // // ── Core fetch ────────────────────────────────────────────────────────────
 
-// async function request<T>(
-//   method: string,
-//   path: string,
-//   body?: object
-// ): Promise<T> {
+// async function request<T>(method: string, path: string, body?: object): Promise<T> {
 //   const token = getToken();
-//   const headers: Record<string, string> = {
-//     'Content-Type': 'application/json',
-//   };
+//   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
 //   if (token) headers['Authorization'] = `Bearer ${token}`;
 
 //   const res = await fetch(`${SERVER_URL}${path}`, {
@@ -56,10 +60,10 @@
 //   catch { throw new Error(`Non-JSON response: ${text.slice(0, 120)}`); }
 // }
 
-// const get   = <T>(path: string)               => request<T>('GET',    path);
-// const post  = <T>(path: string, body: object)  => request<T>('POST',   path, body);
-// const patch = <T>(path: string, body: object)  => request<T>('PATCH',  path, body);
-// const del   = <T>(path: string)               => request<T>('DELETE', path);
+// const get   = <T>(path: string)              => request<T>('GET',    path);
+// const post  = <T>(path: string, body: object) => request<T>('POST',   path, body);
+// const patch = <T>(path: string, body: object) => request<T>('PATCH',  path, body);
+// const del   = <T>(path: string)              => request<T>('DELETE', path);
 
 // // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -126,9 +130,9 @@
 // }
 
 // export const profileApi = {
-//   get:    ()                               => get<UserProfile>('/auth/me'),
-//   update: (u: Partial<UserProfile>)        => patch<UserProfile>('/profile', u),
-//   stats:  ()                               => get<UserStats>('/profile/stats'),
+//   get:    ()                         => get<UserProfile>('/auth/me'),
+//   update: (u: Partial<UserProfile>)  => patch<UserProfile>('/profile', u),
+//   stats:  ()                         => get<UserStats>('/profile/stats'),
 // };
 
 // // ── Sessions ──────────────────────────────────────────────────────────────
@@ -150,15 +154,15 @@
 // }
 
 // export const sessionsApi = {
-//   list:   (limit = 20)                     => get<Session[]>(`/sessions?limit=${limit}`),
-//   get:    (id: string)                     => get<Session>(`/sessions/${id}`),
+//   list:   (limit = 20) => get<Session[]>(`/sessions?limit=${limit}`),
+//   get:    (id: string) => get<Session>(`/sessions/${id}`),
 //   create: (data: {
 //     hostDisplayId: string;
 //     screenAudio?: boolean;
 //     videoCall?: boolean;
 //     controlEnabled?: boolean;
-//   })                                       => post<Session>('/sessions', data),
-//   end:    (id: string, summary?: string, stats?: object) =>
+//   }) => post<Session>('/sessions', data),
+//   end: (id: string, summary?: string, stats?: object) =>
 //     patch<Session>(`/sessions/${id}/end`, { summary, stats }),
 // };
 
@@ -174,13 +178,12 @@
 // }
 
 // export const favouritesApi = {
-//   list:   ()                               => get<Favourite[]>('/favourites'),
-//   upsert: (remoteId: string, label?: string) =>
-//     post<Favourite>('/favourites', { remoteId, label }),
-//   delete: (id: string)                     => del<{ ok: boolean }>(`/favourites/${id}`),
+//   list:   ()                                   => get<Favourite[]>('/favourites'),
+//   upsert: (remoteId: string, label?: string)   => post<Favourite>('/favourites', { remoteId, label }),
+//   delete: (id: string)                         => del<{ ok: boolean }>(`/favourites/${id}`),
 // };
 
-// // ── Recordings (Electron IPC) ─────────────────────────────────────────────
+// // ── Recordings (Electron IPC only) ────────────────────────────────────────
 
 // export interface RecordingFile {
 //   id: string;
@@ -202,7 +205,6 @@
 //   delete: (p: string): Promise<boolean> =>
 //     (window as any).electronAPI?.deleteRecording?.(p) ?? Promise.resolve(false),
 // };
-
 
 
 
@@ -386,9 +388,12 @@ export interface Favourite {
 }
 
 export const favouritesApi = {
-  list:   ()                                   => get<Favourite[]>('/favourites'),
-  upsert: (remoteId: string, label?: string)   => post<Favourite>('/favourites', { remoteId, label }),
-  delete: (id: string)                         => del<{ ok: boolean }>(`/favourites/${id}`),
+  list:   ()                                              => get<Favourite[]>('/favourites'),
+  /** Add a new contact or update its label. Does NOT increment use_count. */
+  upsert: (remoteId: string, label?: string)              => post<Favourite>('/favourites', { remoteId, label }),
+  /** Call this when actually connecting — bumps use_count + last_used_at. */
+  bump:   (remoteId: string)                              => post<Favourite>('/favourites', { remoteId, bump: true }),
+  delete: (id: string)                                    => del<{ ok: boolean }>(`/favourites/${id}`),
 };
 
 // ── Recordings (Electron IPC only) ────────────────────────────────────────
