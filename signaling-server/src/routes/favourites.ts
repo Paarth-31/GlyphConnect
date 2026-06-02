@@ -1,8 +1,18 @@
 // signaling-server/src/routes/favourites.ts
+//
+// [FIX 5] POST /favourites accepts optional body field `bump: true` to call
+//   bumpFavouriteUsage (increments use_count + last_used_at) vs upsertFavourite
+//   (add/rename only). The frontend sends bump=true when actually connecting to
+//   a peer, and omits it when adding or renaming a contact.
 
 import { Router, Request, Response } from 'express';
 import { authenticate } from './auth';
-import { getFavourites, upsertFavourite, deleteFavourite } from '../db/favourites';
+import {
+  getFavourites,
+  upsertFavourite,
+  bumpFavouriteUsage,
+  deleteFavourite,
+} from '../db/favourites';
 
 const router = Router();
 
@@ -17,12 +27,20 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// POST /favourites — add or bump use_count
+// POST /favourites — add/update label (default) or bump usage (bump: true)
 router.post('/', authenticate, async (req: Request, res: Response) => {
-  const { remoteId, label } = req.body ?? {};
+  const { remoteId, label, bump } = req.body ?? {};
   if (!remoteId) return res.status(400).json({ error: 'remoteId is required' });
+
   try {
-    const rows = await upsertFavourite((req as any).userId, remoteId, label);
+    let rows: any[];
+    if (bump === true) {
+      // Called when user actually connects to a peer — increments use_count
+      rows = await bumpFavouriteUsage((req as any).userId, remoteId);
+    } else {
+      // Called when adding or renaming a contact — does NOT increment use_count
+      rows = await upsertFavourite((req as any).userId, remoteId, label);
+    }
     return res.status(201).json(rows[0]);
   } catch (e: any) {
     console.error('[Favourites] Upsert error:', e.message);
