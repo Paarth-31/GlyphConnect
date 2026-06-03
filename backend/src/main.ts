@@ -225,6 +225,34 @@ import { app, BrowserWindow, desktopCapturer, ipcMain, dialog, shell } from 'ele
 import fs from 'fs';
 import path from 'path';
 import http from 'http';
+import { mouse, keyboard, Point, Button, Key, screen } from '@nut-tree-fork/nut-js';
+
+// Add mapping for keys
+function mapKey(keyName: string): Key | null {
+  const k = keyName.toLowerCase();
+  if (k === 'enter') return Key.Enter;
+  if (k === 'backspace') return Key.Backspace;
+  if (k === 'tab') return Key.Tab;
+  if (k === 'escape') return Key.Escape;
+  if (k === 'shift') return Key.LeftShift;
+  if (k === 'control') return Key.LeftControl;
+  if (k === 'alt') return Key.LeftAlt;
+  if (k === 'meta' || k === 'os') return Key.LeftSuper;
+  if (k === 'arrowup') return Key.Up;
+  if (k === 'arrowdown') return Key.Down;
+  if (k === 'arrowleft') return Key.Left;
+  if (k === 'arrowright') return Key.Right;
+  if (k === ' ') return Key.Space;
+  if (k.length === 1 && k >= 'a' && k <= 'z') {
+    const keys = [Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G, Key.H, Key.I, Key.J, Key.K, Key.L, Key.M, Key.N, Key.O, Key.P, Key.Q, Key.R, Key.S, Key.T, Key.U, Key.V, Key.W, Key.X, Key.Y, Key.Z];
+    return keys[k.charCodeAt(0) - 97];
+  }
+  if (k.length === 1 && k >= '0' && k <= '9') {
+    const keys = [Key.Num0, Key.Num1, Key.Num2, Key.Num3, Key.Num4, Key.Num5, Key.Num6, Key.Num7, Key.Num8, Key.Num9];
+    return keys[k.charCodeAt(0) - 48];
+  }
+  return null;
+}
 
 app.disableHardwareAcceleration();
 
@@ -409,6 +437,64 @@ async function createWindow() {
 
   // ── [FIX 1] Expose recordings directory path to renderer ──────────────────
   ipcMain.handle('get-recordings-dir', () => RECORDINGS_DIR);
+
+  // ── [FIX 3] Remote control execution ─────────────────────────────────────────
+  ipcMain.on('remote-control', async (_event, action: any) => {
+    try {
+      const sw = await screen.width();
+      const sh = await screen.height();
+      
+      switch (action.type) {
+        case 'mousemove': {
+          if (action.normX !== undefined && action.normY !== undefined) {
+            const x = Math.max(0, Math.min(sw - 1, Math.round(action.normX * sw)));
+            const y = Math.max(0, Math.min(sh - 1, Math.round(action.normY * sh)));
+            await mouse.setPosition(new Point(x, y));
+          }
+          break;
+        }
+        case 'mousedown': {
+          const btn = action.button === 'right' ? Button.RIGHT : action.button === 'middle' ? Button.MIDDLE : Button.LEFT;
+          await mouse.pressButton(btn);
+          break;
+        }
+        case 'mouseup': {
+          const btn = action.button === 'right' ? Button.RIGHT : action.button === 'middle' ? Button.MIDDLE : Button.LEFT;
+          await mouse.releaseButton(btn);
+          break;
+        }
+        case 'click': {
+          const btn = action.button === 'right' ? Button.RIGHT : action.button === 'middle' ? Button.MIDDLE : Button.LEFT;
+          await mouse.click(btn);
+          break;
+        }
+        case 'scroll': {
+          if (action.scrollY !== undefined && action.scrollY !== 0) {
+            if (action.scrollY > 0) await mouse.scrollDown(action.scrollY);
+            else await mouse.scrollUp(-action.scrollY);
+          }
+          if (action.scrollX !== undefined && action.scrollX !== 0) {
+            if (action.scrollX > 0) await mouse.scrollRight(action.scrollX);
+            else await mouse.scrollLeft(-action.scrollX);
+          }
+          break;
+        }
+        case 'keydown':
+        case 'keyup': {
+          if (action.key) {
+            const nutKey = mapKey(action.key);
+            if (nutKey !== null) {
+              if (action.type === 'keydown') await keyboard.pressKey(nutKey);
+              else await keyboard.releaseKey(nutKey);
+            }
+          }
+          break;
+        }
+      }
+    } catch (e) {
+      console.error('[RemoteControl] action error:', e);
+    }
+  });
 
   // Google OAuth handler
   let oauthCallbackServer: http.Server | null = null;

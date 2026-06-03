@@ -688,15 +688,25 @@ export const usePeerConnection = (
   }, []);
 
   // Grant/revoke — HOST sends to viewer via control channel
+  // Also updates local controlGranted so the host's UI toggles correctly
   const grantControl = useCallback(() => {
     const ch = controlChannelRef.current;
-    if (ch?.readyState === 'open') ch.send(JSON.stringify({ type: 'control-grant' }));
-    // Note: we do NOT set controlGranted on host — that state is for the VIEWER
+    if (ch?.readyState === 'open') {
+      ch.send(JSON.stringify({ type: 'control-grant' }));
+      setControlGranted(true);
+      console.log('[control] granted access to viewer');
+    } else {
+      console.warn('[control] cannot grant — control channel not open');
+    }
   }, []);
 
   const revokeControl = useCallback(() => {
     const ch = controlChannelRef.current;
-    if (ch?.readyState === 'open') ch.send(JSON.stringify({ type: 'control-revoke' }));
+    if (ch?.readyState === 'open') {
+      ch.send(JSON.stringify({ type: 'control-revoke' }));
+      console.log('[control] revoked access from viewer');
+    }
+    setControlGranted(false);
   }, []);
 
   // Viewer sends mouse/keyboard events to host
