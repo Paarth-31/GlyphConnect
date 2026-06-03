@@ -326,7 +326,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { favouritesApi, type Favourite } from '../services/api';
 import {
   ChevronLeft, Book, Monitor, Star, Search, Plus,
-  ArrowRight, Wifi, Trash2, Edit3, Check, X,
+  ArrowRight,Trash2, Edit3, Check, X,
   Loader2, AlertCircle, Clock,
 } from 'lucide-react';
 

@@ -613,7 +613,7 @@ interface Props {
 
 type SidePanel = 'chat' | 'files' | null;
 
-export function SessionPage({ myId, remoteId, isHostInitial, onEnd }: Props) {
+export function SessionPage({ myId, remoteId,onEnd }: Props) {
   const [sidePanel, setSidePanel]           = useState<SidePanel>(null);
   const [sidePanelWidth, setSidePanelWidth] = useState(320);
   const [isResizingSide, setIsResizingSide] = useState(false);

@@ -736,30 +736,33 @@ export const usePeerConnection = (
 
     // ── RTCPeerConnection events ─────────────────────────────────────────────
     if (peer.peer) {
-      // Track which stream IDs we have seen so we can separate
-      // screen-share tracks from AV-call camera tracks
-      const seenStreamIds = new Set<string>();
+      // Track the first video stream ID (screen share). Any subsequent
+      // video stream from a different ID is the AV call camera.
+      let firstVideoStreamId: string | null = null;
 
       peer.peer.ontrack = (ev: RTCTrackEvent) => {
         const track  = ev.track;
         const stream = ev.streams[0] || new MediaStream([track]);
         console.log('[ontrack]', track.kind, stream.id, track.label || track.id);
 
-        const streamId = stream.id;
-
         if (track.kind === 'video') {
-          if (!seenStreamIds.has(streamId)) {
-            // First unique stream with video = screen share
-            seenStreamIds.add(streamId);
+          if (firstVideoStreamId === null) {
+            // First video track = screen share
+            firstVideoStreamId = stream.id;
             setRemoteStream(stream);
-          } else {
-            // Different stream ID = AV call camera
+            console.log('[ontrack] → remoteStream (screen share)');
+          } else if (stream.id !== firstVideoStreamId) {
+            // Different stream = AV call camera
             setRemoteCallStream(stream);
+            console.log('[ontrack] → remoteCallStream (AV camera)');
+          } else {
+            // Same stream as screen share (e.g. replaced track) — update
+            setRemoteStream(stream);
           }
         } else {
-          // Audio: assign to whichever stream this track belongs to
-          if (seenStreamIds.has(streamId) || seenStreamIds.size === 0) {
-            seenStreamIds.add(streamId);
+          // Audio track — route to the correct stream
+          if (firstVideoStreamId === null || stream.id === firstVideoStreamId) {
+            // Screen-share audio (or first audio before any video)
             setRemoteStream(prev => {
               if (!prev) return stream;
               if (!prev.getTrackById(track.id)) {
@@ -768,6 +771,7 @@ export const usePeerConnection = (
               return prev;
             });
           } else {
+            // AV call microphone audio
             setRemoteCallStream(prev => {
               if (!prev) return stream;
               if (!prev.getTrackById(track.id)) {
@@ -882,6 +886,9 @@ export const usePeerConnection = (
     }: { from: string; signal: RTCSessionDescriptionInit; withVideo: boolean }) => {
       console.log('[viewer] incoming-av-call from', from, 'video:', withVideo);
 
+      // Capture viewer's own media BEFORE answering so the tracks
+      // are included in the SDP answer (this is the key fix for
+      // two-way AV visibility)
       let stream: MediaStream | null = null;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo });
@@ -902,16 +909,15 @@ export const usePeerConnection = (
         if (cam && withVideo) peer.addTrack(cam, stream, CAM_VIDEO);
       }
 
-      // Renegotiate — set remote description and answer
-      if (peer.peer) {
-        try {
-          await peer.peer.setRemoteDescription(new RTCSessionDescription(signal));
-          const answer = await peer.peer.createAnswer();
-          await peer.peer.setLocalDescription(answer);
-          socket.emit('answer-call', { to: from, signal: answer });
-        } catch (e) {
-          console.error('[viewer] AV renegotiation failed:', e);
-        }
+      // Use peer.getAnswer() which atomically sets remote description
+      // and creates the answer. This avoids the race condition that
+      // occurred when manually calling setRemoteDescription + createAnswer.
+      const answer = await peer.getAnswer(signal);
+      if (answer) {
+        socket.emit('answer-call', { to: from, signal: answer });
+        console.log('[viewer] AV call answered successfully');
+      } else {
+        console.error('[viewer] AV renegotiation failed: no answer generated');
       }
     });
 
@@ -1023,6 +1029,11 @@ export const usePeerConnection = (
         alert('Could not access microphone. Check browser permissions.');
         return;
       }
+    }
+
+    if (!stream) {
+      alert('Could not access microphone. Check browser permissions.');
+      return;
     }
 
     setCallStream(stream);

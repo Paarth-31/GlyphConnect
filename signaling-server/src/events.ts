@@ -38,6 +38,7 @@ export const setupSocketEvents = (io: Server) => {
     socket.on('av-call-user', (data) => {
       const { userToCall, signalData, from, withVideo } = data;
       if (!isValidSDP(signalData)) return;
+      console.log(`  av-call ${from} → ${userToCall} (video: ${withVideo})`);
       io.to(userToCall).emit('incoming-av-call', { signal: signalData, from, withVideo });
     });
 
@@ -45,6 +46,7 @@ export const setupSocketEvents = (io: Server) => {
     socket.on('answer-call', (data) => {
       const { to, signal } = data;
       if (!isValidSDP(signal)) return;
+      console.log(`  answer ${socket.id} → ${to}`);
       io.to(to).emit('call-accepted', { signal });
     });
 

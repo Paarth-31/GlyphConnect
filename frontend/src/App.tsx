@@ -6,7 +6,7 @@ import { RecordingsPage }  from './pages/RecordingsPage';
 import { AddressBookPage } from './pages/AddressBookPage';
 import { SettingsPage, ProfilePage } from './pages/SettingsPage';
 import { useAuth }         from './auth/AuthProvider';
-import { sessionsApi, favouritesApi } from './services/api';
+import { sessionsApi } from './services/api';
 import { recordLocalSession } from './pages/HomePage';
 
 export type Page =
@@ -44,9 +44,9 @@ export default function App() {
     let dbSessionId: string | undefined;
 
     if (isAuthRef.current) {
-      if (remoteId) {
-        favouritesApi.bump(remoteId).catch(() => {});
-      }
+      // [FIX] Removed automatic favouritesApi.bump(remoteId) — favourites
+      // are now added explicitly by the user via the Address Book UI.
+
       if (isHost && myId) {
         try {
           const session = await sessionsApi.create({
