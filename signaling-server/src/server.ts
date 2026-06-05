@@ -385,7 +385,7 @@ async function bootstrap() {
   // Handles OPTIONS requests for ALL routes and responds correctly with the
   // CORS headers above + status 204. Without this, some browsers and REST
   // clients send a preflight OPTIONS request that never gets a valid response.
-  app.options('*', cors(corsOptions));
+app.options('(.*)', cors(corsOptions));
 
   // ── Regular CORS middleware for all other methods ─────────────────────────
   app.use(cors(corsOptions));
