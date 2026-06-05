@@ -2,7 +2,9 @@
   "name": "rda-signaling",
   "version": "1.0.0",
   "scripts": {
-    "dev": "ts-node src/server.ts"
+    "dev": "ts-node src/server.ts",
+    "build": "tsc --noEmit",
+    "start": "ts-node src/server.ts"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
