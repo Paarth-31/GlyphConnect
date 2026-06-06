@@ -86,7 +86,7 @@
 //        FROM favourites
 //        WHERE user_id = $1
 //        ORDER BY last_used_at DESC NULLS LAST, use_count DESC`,
-//       [(req as any).user.id]
+//       [(req as any).userId]
 //     );
 //     res.json(rows);
 //   } catch (e: any) {
@@ -112,7 +112,7 @@
 //            use_count    = favourites.use_count + 1,
 //            last_used_at = NOW()
 //          RETURNING *`,
-//         [(req as any).user.id, remoteId]
+//         [(req as any).userId, remoteId]
 //       );
 //       return res.json(rows[0]);
 //     }
@@ -125,7 +125,7 @@
 //          label = COALESCE(EXCLUDED.label, favourites.label),
 //          updated_at = NOW()
 //        RETURNING *`,
-//       [(req as any).user.id, remoteId, label ?? null]
+//       [(req as any).userId, remoteId, label ?? null]
 //     );
 //     res.json(rows[0]);
 //   } catch (e: any) {
@@ -141,7 +141,7 @@
 //       `UPDATE favourites SET label = $1
 //        WHERE id = $2 AND user_id = $3
 //        RETURNING *`,
-//       [label ?? null, req.params.id, (req as any).user.id]
+//       [label ?? null, req.params.id, (req as any).userId]
 //     );
 //     if (!rows[0]) return res.status(404).json({ error: 'Favourite not found' });
 //     res.json(rows[0]);
@@ -155,7 +155,7 @@
 //   try {
 //     const result = await pool.query(
 //       'DELETE FROM favourites WHERE id = $1 AND user_id = $2',
-//       [req.params.id, (req as any).user.id]
+//       [req.params.id, (req as any).userId]
 //     );
 //     if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
 //     res.json({ ok: true });
@@ -188,7 +188,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
        FROM favourites
        WHERE user_id = $1
        ORDER BY last_used_at DESC NULLS LAST, use_count DESC`,
-      [(req as any).user.id]
+      [(req as any).userId]
     );
     res.json(rows);
   } catch (e: any) {
@@ -213,7 +213,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
            use_count    = favourites.use_count + 1,
            last_used_at = NOW()
          RETURNING *`,
-        [(req as any).user.id, remoteId]
+        [(req as any).userId, remoteId]
       );
       return res.json(rows[0]);
     }
@@ -224,7 +224,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
        ON CONFLICT (user_id, remote_id) DO UPDATE SET
          label = COALESCE(EXCLUDED.label, favourites.label)
        RETURNING *`,
-      [(req as any).user.id, remoteId, label ?? null]
+      [(req as any).userId, remoteId, label ?? null]
     );
     res.json(rows[0]);
   } catch (e: any) {
@@ -240,7 +240,7 @@ router.patch('/:id', authenticate, async (req: Request, res: Response) => {
       `UPDATE favourites SET label = $1
        WHERE id = $2 AND user_id = $3
        RETURNING *`,
-      [label ?? null, req.params.id, (req as any).user.id]
+      [label ?? null, req.params.id, (req as any).userId]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Favourite not found' });
     res.json(rows[0]);
@@ -254,7 +254,7 @@ router.delete('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const result = await pool.query(
       'DELETE FROM favourites WHERE id = $1 AND user_id = $2',
-      [req.params.id, (req as any).user.id]
+      [req.params.id, (req as any).userId]
     );
     if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });

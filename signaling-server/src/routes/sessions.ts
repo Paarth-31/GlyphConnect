@@ -230,7 +230,7 @@
 //        WHERE s.user_id = $1
 //        ORDER BY s.start_time DESC
 //        LIMIT $2`,
-//       [(req as any).user.id, limit]
+//       [(req as any).userId, limit]
 //     );
 //     res.json(rows);
 //   } catch (e: any) {
@@ -247,7 +247,7 @@
 //        LEFT JOIN favourites f
 //          ON f.user_id = s.user_id AND f.remote_id = s.host_display_id
 //        WHERE s.id = $1 AND s.user_id = $2`,
-//       [req.params.id, (req as any).user.id]
+//       [req.params.id, (req as any).userId]
 //     );
 //     if (!rows[0]) return res.status(404).json({ error: 'Session not found' });
 //     res.json(rows[0]);
@@ -276,7 +276,7 @@
 //       `UPDATE sessions SET status='error', end_time=NOW()
 //        WHERE user_id=$1 AND status='active'
 //        AND start_time < NOW() - INTERVAL '12 hours'`,
-//       [(req as any).user.id]
+//       [(req as any).userId]
 //     );
 
 //     const { rows } = await pool.query(
@@ -286,7 +286,7 @@
 //        VALUES ($1,$2,$3,$4,$5,$6,'active')
 //        RETURNING *`,
 //       [
-//         (req as any).user.id,
+//         (req as any).userId,
 //         hostDisplayId,
 //         controllerSocketId ?? null,
 //         screenAudio,
@@ -315,7 +315,7 @@
 //        RETURNING *`,
 //       [
 //         req.params.id,
-//         (req as any).user.id,
+//         (req as any).userId,
 //         summary ?? null,
 //         videoCall ?? null,
 //         controlEnabled ?? null,
@@ -360,7 +360,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
        WHERE s.user_id = $1
        ORDER BY s.start_time DESC
        LIMIT $2`,
-      [(req as any).user.id, limit]
+      [(req as any).userId, limit]
     );
     res.json(rows);
   } catch (e: any) {
@@ -377,7 +377,7 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
        LEFT JOIN favourites f
          ON f.user_id = s.user_id AND f.remote_id = s.host_display_id
        WHERE s.id = $1 AND s.user_id = $2`,
-      [req.params.id, (req as any).user.id]
+      [req.params.id, (req as any).userId]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Session not found' });
     res.json(rows[0]);
@@ -406,7 +406,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
       `UPDATE sessions SET status='error', end_time=NOW()
        WHERE user_id=$1 AND status='active'
        AND start_time < NOW() - INTERVAL '12 hours'`,
-      [(req as any).user.id]
+      [(req as any).userId]
     );
 
     const { rows } = await pool.query(
@@ -416,7 +416,7 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
        VALUES ($1,$2,$3,$4,$5,$6,'active')
        RETURNING *`,
       [
-        (req as any).user.id,
+        (req as any).userId,
         hostDisplayId,
         controllerSocketId ?? null,
         screenAudio,
@@ -445,7 +445,7 @@ router.patch('/:id/end', authenticate, async (req: Request, res: Response) => {
        RETURNING *`,
       [
         req.params.id,
-        (req as any).user.id,
+        (req as any).userId,
         summary ?? null,
         videoCall ?? null,
         controlEnabled ?? null,
