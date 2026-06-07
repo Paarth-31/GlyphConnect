@@ -21,6 +21,7 @@ export function SignInPage() {
   const [showPw, setShowPw]       = useState(false);
   const [loading, setLoading]     = useState(false);
   const [localError, setLocalErr] = useState<string | null>(null);
+  const [showForgotPw, setShowForgotPw] = useState(false);
 
   const switchMode = (m: Mode) => {
     setMode(m);
@@ -169,9 +170,15 @@ export function SignInPage() {
 
             {mode === 'signin' && (
               <div className="text-right -mt-1">
-                <button type="button" className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors">
+                <button type="button" onClick={() => setShowForgotPw(v => !v)} className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors">
                   Forgot password?
                 </button>
+                {showForgotPw && (
+                  <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300/80 text-[11px] text-left leading-relaxed">
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                    <span>Password reset via email is not available yet. Please create a new account or contact the admin at <strong>support@glyphconnect.io</strong> to reset your password.</span>
+                  </div>
+                )}
               </div>
             )}
 

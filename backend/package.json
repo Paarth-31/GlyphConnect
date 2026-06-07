@@ -1,19 +1,63 @@
 {
   "name": "rda-desktop",
   "version": "1.0.0",
+  "description": "GlyphConnect — Remote Desktop Application",
+  "author": "GlyphConnect",
   "main": "dist/main.js",
   "scripts": {
+    "dev": "tsc && electron .",
     "build": "tsc",
-    "dev": "tsc && electron ."
+    "pack": "npm run build && npx electron-builder --dir",
+    "dist": "npm run build && npx electron-builder"
+  },
+  "build": {
+    "appId": "com.glyphconnect.rda",
+    "productName": "GlyphConnect",
+    "copyright": "Copyright © 2026 GlyphConnect",
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "extraResources": [],
+    "asar": true,
+    "linux": {
+      "target": [
+        { "target": "AppImage", "arch": ["x64"] }
+      ],
+      "category": "Utility",
+      "icon": "assets/icon.png"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.utilities"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "directories": {
+      "buildResources": "assets",
+      "output": "release"
+    }
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
     "electron": "^28.3.3",
+    "electron-builder": "^26.0.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
     "@nut-tree-fork/nut-js": "^4.2.6",
-    "all": "^0.0.0",
     "socket.io-client": "^4.8.3"
   }
 }

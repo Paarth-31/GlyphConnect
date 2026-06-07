@@ -243,7 +243,7 @@ router.get('/sessions', requireAdmin, async (req: Request, res: Response) => {
        FROM sessions s
        JOIN  users u_host ON u_host.id = s.host_id
        LEFT JOIN users u_ctrl ON u_ctrl.id = s.controller_id
-       WHERE ($2::TEXT IS NULL OR s.status = $2::session_status)
+       WHERE ($2::TEXT IS NULL OR s.status = $2)
        ORDER BY s.start_time DESC
        LIMIT $1`,
       [limit, status]

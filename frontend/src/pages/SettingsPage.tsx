@@ -377,7 +377,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
                 <p className="text-[11px] text-white/25 font-mono">{profile?.email ?? '—'}</p>
               </div>
             </div>
-            <button className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors px-2 py-1 rounded-md hover:bg-indigo-500/10">
+            <button onClick={() => alert('Email change requires email verification and is not yet supported. Please contact support.')} className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors px-2 py-1 rounded-md hover:bg-indigo-500/10">
               Change
             </button>
           </div>
@@ -424,7 +424,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
                 <p className="text-[11px] text-white/25">{profile?.two_fa_enabled ? 'Enabled' : 'Disabled'}</p>
               </div>
             </div>
-            <button className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors px-2 py-1 rounded-md hover:bg-indigo-500/10">
+            <button onClick={() => alert('Two-factor authentication is coming soon. This feature is under development.')} className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors px-2 py-1 rounded-md hover:bg-indigo-500/10">
               {profile?.two_fa_enabled ? 'Manage' : 'Enable'}
             </button>
           </div>

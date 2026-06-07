@@ -1729,7 +1729,14 @@ export const usePeerConnection = (
 
     return () => {
       stopQualityPolling();
-      socket.removeAllListeners();
+      // [FIX M5] Only remove app-specific listeners, not Socket.io internal ones
+      const appEvents = [
+        'connect', 'connection-request', 'connection-accepted',
+        'connection-rejected', 'viewer-joined', 'call-user',
+        'call-accepted', 'ice-candidate', 'session-ended',
+        'av-call-user', 'av-call-accepted', 'hang-up',
+      ];
+      appEvents.forEach(evt => socket.off(evt));
       socket.disconnect();
       socketRef.current = null;
     };

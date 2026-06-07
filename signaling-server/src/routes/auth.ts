@@ -8,6 +8,7 @@ import {
 } from '../db/users';
 import { logUserAction } from '../db/admin';
 import { queryService } from '../db/client';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 
@@ -124,30 +125,38 @@ router.post('/refresh', async (req: Request, res: Response) => {
   }
 
   try {
-    // Look up the session row that holds this token
-    // Also verify it hasn't expired and the user is still active
+    // [FIX C5] Fetch all valid sessions for comparison with bcrypt
+    // Since tokens are now stored as hashes, we can't do exact-match lookup.
+    // Fetch all non-expired sessions and compare each hash.
     const rows = await queryService(
       `SELECT
+         usa.id AS session_id,
          usa.user_id,
+         usa.refresh_token AS token_hash,
          usa.expires_at,
          u.role,
          u.is_active,
          u.email
        FROM user_sessions_auth usa
        JOIN users u ON u.id = usa.user_id
-       WHERE usa.refresh_token = $1
-         AND usa.expires_at    > NOW()
-         AND u.is_active       = TRUE`,
-      [refreshToken]
+       WHERE usa.expires_at > NOW()
+         AND u.is_active    = TRUE`,
     );
 
-    if (!rows[0]) {
+    // Find the session whose hash matches the submitted token
+    let matchedRow: any = null;
+    for (const row of rows) {
+      const isMatch = await bcrypt.compare(refreshToken, (row as any).token_hash);
+      if (isMatch) { matchedRow = row; break; }
+    }
+
+    if (!matchedRow) {
       return res
         .status(401)
         .json({ error: 'Refresh token is invalid or has expired' });
     }
 
-    const { user_id, role, email } = rows[0] as any;
+    const { user_id, role, email } = matchedRow as any;
 
     const newAccessToken = makeAccessToken(user_id, role);
 
@@ -170,11 +179,20 @@ router.post('/logout', authenticate, async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
 
   try {
+    // [FIX C5] Token is stored as hash — find and delete by bcrypt comparison
     if (refreshToken) {
-      await queryService(
-        `DELETE FROM user_sessions_auth WHERE refresh_token = $1`,
-        [refreshToken]
+      const sessions = await queryService(
+        `SELECT id, refresh_token AS token_hash FROM user_sessions_auth
+         WHERE user_id = $1`,
+        [(req as any).userId]
       );
+      for (const s of sessions) {
+        const isMatch = await bcrypt.compare(refreshToken, (s as any).token_hash);
+        if (isMatch) {
+          await queryService(`DELETE FROM user_sessions_auth WHERE id = $1`, [(s as any).id]);
+          break;
+        }
+      }
     }
 
     await logUserAction({

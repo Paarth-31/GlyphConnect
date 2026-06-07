@@ -411,9 +411,9 @@ router.post('/', authenticate, async (req: Request, res: Response) => {
 
     const { rows } = await pool.query(
       `INSERT INTO sessions
-         (user_id, host_display_id, controller_socket_id,
+         (user_id, host_id, host_display_id, controller_socket_id,
           screen_audio, video_call, control_enabled, status)
-       VALUES ($1,$2,$3,$4,$5,$6,'active')
+       VALUES ($1,$1,$2,$3,$4,$5,$6,'active')
        RETURNING *`,
       [
         (req as any).userId,
@@ -436,11 +436,12 @@ router.patch('/:id/end', authenticate, async (req: Request, res: Response) => {
   try {
     const { rows } = await pool.query(
       `UPDATE sessions SET
-         status          = 'ended',
-         end_time        = NOW(),
-         summary         = COALESCE($3, summary),
-         video_call      = COALESCE($4, video_call),
-         control_enabled = COALESCE($5, control_enabled)
+         status           = 'ended',
+         end_time         = NOW(),
+         duration_seconds = EXTRACT(EPOCH FROM (NOW() - start_time))::INTEGER,
+         summary          = COALESCE($3, summary),
+         video_call       = COALESCE($4, video_call),
+         control_enabled  = COALESCE($5, control_enabled)
        WHERE id = $1 AND user_id = $2 AND status = 'active'
        RETURNING *`,
       [

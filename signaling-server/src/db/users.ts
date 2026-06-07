@@ -103,13 +103,14 @@ export async function createRefreshToken(
   const hash = await bcrypt.hash(token, 8);
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
+  // [FIX C4] Store the HASH, not the plaintext token
   await queryService(
     `INSERT INTO user_sessions_auth
        (user_id, refresh_token, device_info, ip_address, expires_at)
      VALUES ($1, $2, $3, $4, $5)`,
-    [userId, token, JSON.stringify(deviceInfo), ipAddress, expiresAt]
+    [userId, hash, JSON.stringify(deviceInfo), ipAddress, expiresAt]
   );
-  return token;
+  return token; // Return plaintext to client; DB only has the hash
 }
 
 export async function getUserProfile(userId: string) {

@@ -93,13 +93,15 @@ router.post('/google/callback', async (req: Request, res: Response) => {
       user.is_verified = true;
     } else {
       // Create new user — no password (Google-only account)
+      // [FIX L3] Generate an 11-digit permanent_room_id for the new user
+      const permRoomId = Array.from({ length: 11 }, () => Math.floor(Math.random() * 10)).join('');
       const rows = await queryService(
         `INSERT INTO users
-           (email, display_name, avatar_url, is_verified, password_hash)
-         VALUES ($1, $2, $3, TRUE, '')
+           (email, display_name, avatar_url, is_verified, password_hash, permanent_room_id)
+         VALUES ($1, $2, $3, TRUE, '', $4)
          RETURNING id, email, display_name, avatar_url, role,
-                   is_verified, two_fa_enabled, created_at`,
-        [profile.email.toLowerCase(), profile.name, profile.picture]
+                   is_verified, two_fa_enabled, permanent_room_id, created_at`,
+        [profile.email.toLowerCase(), profile.name, profile.picture, permRoomId]
       );
       user = rows[0];
 

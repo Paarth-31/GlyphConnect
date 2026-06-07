@@ -27,7 +27,7 @@ export async function queryAsUser<T = any>(
 ): Promise<T[]> {
   const client = await pool.connect();
   try {
-    await client.query(`SET LOCAL app.current_user_id = '${userId}'`);
+    await client.query(`SELECT set_config('app.current_user_id', $1, true)`, [userId]);
     const result = await client.query(text, params);
     return result.rows as T[];
   } finally {
