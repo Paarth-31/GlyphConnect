@@ -10,8 +10,11 @@
     "dev:frontend": "cd frontend && npm run dev",
     "dev:desktop": "wait-on http://localhost:5173 && npm run dev --prefix backend",
     "dev:signaling": "cd signaling-server && npm run dev",
-    "build:win": "electron-builder --win portable",
-    "build:linux": "electron-builder --linux AppImage",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npx tsc",
+    "build:all": "npm run build:frontend && npm run build:backend",
+    "build:win": "npm run build:all && electron-builder --win --x64",
+    "build:linux": "npm run build:all && electron-builder --linux AppImage",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../signaling-server && npm install"
   },
   "devDependencies": {
@@ -31,18 +34,32 @@
     },
     "files": [
       "backend/dist/**/*",
-      "frontend/dist/**/*",
+      "backend/renderer/**/*",
+      "backend/node_modules/**/*",
+      "backend/package.json",
       "node_modules/**/*",
       "package.json"
     ],
     "win": {
-      "target": "portable",
+      "target": [
+        { "target": "portable", "arch": ["x64"] },
+        { "target": "nsis", "arch": ["x64"] }
+      ],
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "backend/assets/icon.ico",
+      "uninstallerIcon": "backend/assets/icon.ico"
     },
     "linux": {
       "target": "AppImage",
       "category": "Network"
-    }
+    },
+    "asarUnpack": [
+      "backend/node_modules/@nut-tree-fork/**"
+    ]
   },
   "dependencies": {}
 }

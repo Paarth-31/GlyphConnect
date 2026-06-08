@@ -652,7 +652,16 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
     try {
       const fav = await favouritesApi.upsert(remoteId);
       setFavourites(prev => [fav, ...prev.filter(f => f.remote_id !== remoteId)]);
-      setActiveTab('favourites');
+    } catch {}
+  };
+
+  const handleAddToContacts = async (remoteId: string) => {
+    if (!isAuthenticated) { alert('Sign in to save contacts.'); return; }
+    const label = window.prompt('Contact name (optional):');
+    if (label === null) return;
+    try {
+      await favouritesApi.upsert(remoteId, label.trim() || undefined);
+      onNavigate('addressbook');
     } catch {}
   };
 
@@ -925,15 +934,22 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
                       <p className="text-[10px] text-white/15">{Math.floor(s.duration_seconds / 60)}m {s.duration_seconds % 60}s</p>
                     )}
                   </button>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => { e.stopPropagation(); handleAddToFavourites(s.host_display_id); }}
-                      className="p-1.5 rounded-lg text-white/20 hover:text-amber-400 hover:bg-amber-500/10 transition-all opacity-0 group-hover:opacity-100"
+                      className="p-1.5 rounded-lg text-white/30 hover:text-amber-400 hover:bg-amber-500/10 transition-all"
+                      title="Add to favourites"
+                    >
+                      <Star className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleAddToContacts(s.host_display_id); }}
+                      className="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/10 transition-all"
                       title="Add to contacts"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => handleQuickConnect(s.host_display_id)} className="p-1.5 rounded-lg text-white/15 group-hover:text-indigo-400 transition-all">
+                    <button onClick={() => handleQuickConnect(s.host_display_id)} className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-500/15 transition-all" title="Connect">
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -953,15 +969,22 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
                     </p>
                     <p className="text-[10px] text-white/20 mt-0.5">{timeAgo(s.connectedAt)} · this device only</p>
                   </button>
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => { alert('Sign in to save contacts.'); }}
-                      className="p-1.5 rounded-lg text-white/20 hover:text-amber-400 hover:bg-amber-500/10 transition-all opacity-0 group-hover:opacity-100"
-                      title="Sign in to save as contact"
+                      onClick={() => alert('Sign in to save favourites.')}
+                      className="p-1.5 rounded-lg text-white/30 hover:text-amber-400 hover:bg-amber-500/10 transition-all"
+                      title="Sign in to add to favourites"
+                    >
+                      <Star className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => alert('Sign in to save contacts.')}
+                      className="p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/10 transition-all"
+                      title="Sign in to add to contacts"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => handleQuickConnect(s.remoteId)} className="p-1.5 rounded-lg text-white/15 group-hover:text-indigo-400 transition-all">
+                    <button onClick={() => handleQuickConnect(s.remoteId)} className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-500/15 transition-all" title="Connect">
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>

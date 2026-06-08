@@ -1722,10 +1722,13 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
               <TBtn icon={Clipboard} label="Sync Clip" color="blue" onClick={syncClipboard} />
             </>
           ) : (
-            <div className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-semibold border ${controlGranted ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25' : 'bg-white/[0.04] text-white/35 border-white/[0.06]'}`}>
-              <MousePointer2 className="w-4 h-4" />
-              <span>{controlGranted ? 'Control On' : 'View Only'}</span>
-            </div>
+            <>
+              <div className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-semibold border ${controlGranted ? 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25' : 'bg-white/[0.04] text-white/35 border-white/[0.06]'}`}>
+                <MousePointer2 className="w-4 h-4" />
+                <span>{controlGranted ? 'Control On' : 'View Only'}</span>
+              </div>
+              <TBtn icon={Clipboard} label="Sync Clip" color="blue" onClick={syncClipboard} />
+            </>
           )}
         </div>
 

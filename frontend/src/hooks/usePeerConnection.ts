@@ -1191,7 +1191,7 @@ export interface ControlAction {
   type: 'mousemove' | 'mousedown' | 'mouseup' | 'click' | 'scroll' | 'keydown' | 'keyup';
   normX?: number; normY?: number;
   button?: 'left' | 'right' | 'middle';
-  key?: string; scrollX?: number; scrollY?: number;
+  key?: string; code?: string; scrollX?: number; scrollY?: number;
 }
 
 /** Granular permission set sent with control-grant */
@@ -1267,6 +1267,8 @@ export const usePeerConnection = (
   const myStreamRef        = useRef<MediaStream | null>(null);
   const callStreamRef      = useRef<MediaStream | null>(null);
   const controlGrantedRef  = useRef(false);
+  const controlPermsRef    = useRef<ControlPerms>({ mouse: true, keyboard: true, clipboard: false, fileTransfer: true });
+  const grantedPermsRef    = useRef<ControlPerms>({ mouse: true, keyboard: true, clipboard: false, fileTransfer: true });
   const pendingViewerRef   = useRef<PendingViewer | null>(null);
   const statsIntervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -1276,7 +1278,26 @@ export const usePeerConnection = (
   useEffect(() => { myStreamRef.current        = myStream;         }, [myStream]);
   useEffect(() => { callStreamRef.current      = callStream;       }, [callStream]);
   useEffect(() => { controlGrantedRef.current  = controlGranted;   }, [controlGranted]);
+  useEffect(() => { controlPermsRef.current    = controlPerms;     }, [controlPerms]);
   useEffect(() => { pendingViewerRef.current   = pendingViewer;    }, [pendingViewer]);
+
+  const applyClipboardText = useCallback(async (text: string) => {
+    const api = (window as any).electronAPI;
+    try {
+      if (api?.writeClipboard) await api.writeClipboard(text);
+      else await navigator.clipboard.writeText(text);
+    } catch {}
+  }, []);
+
+  const readClipboardText = useCallback(async (): Promise<string> => {
+    const api = (window as any).electronAPI;
+    try {
+      if (api?.readClipboard) return await api.readClipboard();
+      return await navigator.clipboard.readText();
+    } catch {
+      return '';
+    }
+  }, []);
 
   const SCREEN_VIDEO = 'screen-video';
   const SCREEN_AUDIO = 'screen-audio';
@@ -1346,22 +1367,34 @@ export const usePeerConnection = (
       try {
         const msg = JSON.parse(e.data);
         if (msg.type === 'clipboard-sync' && typeof msg.text === 'string') {
-          navigator.clipboard.writeText(msg.text).catch(() => {});
+          applyClipboardText(msg.text);
         }
       } catch {}
     };
     ch.onerror = (e) => console.error('[clipboard]', e);
-  }, []);
+  }, [applyClipboardText]);
 
   /** Copy local clipboard content to the peer's clipboard */
   const syncClipboard = useCallback(async () => {
+    const text = await readClipboardText();
+    if (!text) return;
+
     const ch = clipboardChannelRef.current;
-    if (!ch || ch.readyState !== 'open') return;
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) ch.send(JSON.stringify({ type: 'clipboard-sync', text }));
-    } catch {}
-  }, []);
+    if (ch?.readyState === 'open') {
+      ch.send(JSON.stringify({ type: 'clipboard-sync', text }));
+      return;
+    }
+
+    const ctrlCh = controlChannelRef.current;
+    if (ctrlCh?.readyState === 'open') {
+      ctrlCh.send(JSON.stringify({ type: 'clipboard-sync', text }));
+      return;
+    }
+
+    if (peerSocketIdRef.current && socketRef.current?.connected) {
+      socketRef.current.emit('clipboard-sync', { to: peerSocketIdRef.current, text });
+    }
+  }, [readClipboardText]);
 
   // ── DataChannel: encrypted chat ───────────────────────────────────────────
 
@@ -1426,18 +1459,24 @@ export const usePeerConnection = (
         }
         if (msg.type === 'control-revoke')   { setControlGranted(false); return; }
         if (msg.type === 'clipboard-sync')   {
-          navigator.clipboard.writeText((msg as any).text ?? '').catch(() => {});
+          applyClipboardText((msg as any).text ?? '');
           return;
         }
         // Mouse/keyboard: HOST executes these (HOST has isHostRef.current = true)
         if (isHostRef.current) {
+          const perms = grantedPermsRef.current;
+          if (msg.type === 'keydown' || msg.type === 'keyup') {
+            if (!perms.keyboard) return;
+          } else if (msg.type === 'mousemove' || msg.type === 'mousedown' || msg.type === 'mouseup' || msg.type === 'click' || msg.type === 'scroll') {
+            if (!perms.mouse) return;
+          }
           (window as any).electronAPI?.sendControlAction(msg);
         }
       } catch {}
     };
     ch.onerror = (e) => console.error('[ctrl]', e);
     ch.onopen  = () => console.log('[ctrl] open');
-  }, []);
+  }, [applyClipboardText]);
 
   /** Host: grant control to viewer with optional granular permissions */
   const grantControl = useCallback((perms?: Partial<ControlPerms>) => {
@@ -1448,6 +1487,7 @@ export const usePeerConnection = (
     };
     if (ch?.readyState === 'open') {
       ch.send(JSON.stringify({ type: 'control-grant', perms: fullPerms }));
+      grantedPermsRef.current = fullPerms;
       setControlGranted(true);
       setControlPerms(fullPerms);
     }
@@ -1464,6 +1504,12 @@ export const usePeerConnection = (
   const sendControlEvent = useCallback((action: ControlAction) => {
     const ch = controlChannelRef.current;
     if (!ch || ch.readyState !== 'open' || !controlGrantedRef.current) return;
+    const perms = controlPermsRef.current;
+    if (action.type === 'keydown' || action.type === 'keyup') {
+      if (!perms.keyboard) return;
+    } else if (action.type === 'mousemove' || action.type === 'mousedown' || action.type === 'mouseup' || action.type === 'click' || action.type === 'scroll') {
+      if (!perms.mouse) return;
+    }
     ch.send(JSON.stringify(action));
   }, []);
 
@@ -1697,18 +1743,25 @@ export const usePeerConnection = (
     // VIEWER: incoming AV call offer (host started video/audio call)
     socket.on('incoming-av-call', async ({ from, signal, withVideo }) => {
       console.log('[viewer] incoming-av-call from', from, 'video:', withVideo);
-      let stream: MediaStream | null = null;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo });
-      } catch {
-        try { stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); } catch {}
-      }
-      if (stream) {
-        setCallStream(stream); setInCall(true);
-        const mic = stream.getAudioTracks()[0];
-        const cam = stream.getVideoTracks()[0];
-        if (mic) peer.addTrack(mic, stream, MIC_AUDIO);
-        if (cam && withVideo) peer.addTrack(cam, stream, CAM_VIDEO);
+      if (!callStreamRef.current) {
+        let stream: MediaStream | null = null;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true },
+            video: withVideo ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+          });
+        } catch {
+          try { stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); } catch {}
+        }
+        if (stream) {
+          setCallStream(stream); setInCall(true);
+          const mic = stream.getAudioTracks()[0];
+          const cam = stream.getVideoTracks()[0];
+          if (mic) peer.addTrack(mic, stream, MIC_AUDIO);
+          if (cam && withVideo) peer.addTrack(cam, stream, CAM_VIDEO);
+        }
+      } else {
+        setInCall(true);
       }
       const answer = await peer.getAnswer(signal);
       if (answer) socket.emit('answer-call', { to: from, signal: answer });
@@ -1735,6 +1788,11 @@ export const usePeerConnection = (
       setTimeout(() => onSessionEndedRef.current?.(), 100);
     });
 
+    // Clipboard relay fallback when DataChannel is not ready
+    socket.on('clipboard-sync', ({ text }: { text: string }) => {
+      if (typeof text === 'string' && text.length > 0) applyClipboardText(text);
+    });
+
     return () => {
       stopQualityPolling();
       // [FIX M5] Only remove app-specific listeners, not Socket.io internal ones
@@ -1751,7 +1809,7 @@ export const usePeerConnection = (
   }, [
     myId,
     attachChatChannel, attachControlChannel, attachFileChannel, attachClipboardChannel,
-    _stopMedia, startQualityPolling, stopQualityPolling,
+    applyClipboardText, _stopMedia, startQualityPolling, stopQualityPolling,
   ]);
 
   // ── Public actions ────────────────────────────────────────────────────────
@@ -1842,10 +1900,19 @@ export const usePeerConnection = (
     if (!peerSocketIdRef.current || !socketRef.current) { alert('No peer connected.'); return; }
     let stream: MediaStream | null = null;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: withVideo });
-    } catch {
-      try { stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false }); withVideo = false; }
-      catch { alert('Could not access microphone.'); return; }
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+        video: withVideo ? { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+      });
+    } catch (err) {
+      console.warn('[startCall] getUserMedia failed:', err);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        withVideo = false;
+      } catch {
+        alert('Could not access microphone/camera. Check Windows privacy settings and allow GlyphConnect.');
+        return;
+      }
     }
     if (!stream) return;
     setCallStream(stream); setInCall(true);
@@ -1853,8 +1920,8 @@ export const usePeerConnection = (
     const cam = stream.getVideoTracks()[0];
     if (mic) peer.addTrack(mic, stream, MIC_AUDIO);
     if (cam && withVideo) peer.addTrack(cam, stream, CAM_VIDEO);
-    if (!peer.peer || peer.peer.signalingState !== 'stable') return;
-    const offer = await peer.getOffer();
+
+    const offer = await peer.renegotiate();
     if (offer) socketRef.current.emit('av-call-user', {
       userToCall: peerSocketIdRef.current,
       from: socketRef.current.id,
@@ -1862,11 +1929,22 @@ export const usePeerConnection = (
     });
   }, []);
 
-  const endCall = useCallback(() => {
+  const endCall = useCallback(async () => {
     callStreamRef.current?.getTracks().forEach(t => t.stop());
     peer.removeTrack(MIC_AUDIO);
     peer.removeTrack(CAM_VIDEO);
     setCallStream(null); setRemoteCallStream(null); setInCall(false);
+
+    if (peerSocketIdRef.current && socketRef.current?.connected) {
+      const offer = await peer.renegotiate();
+      if (offer) {
+        socketRef.current.emit('call-user', {
+          userToCall: peerSocketIdRef.current,
+          from: socketRef.current.id,
+          signalData: offer,
+        });
+      }
+    }
   }, []);
 
   const toggleMic = useCallback(() => {

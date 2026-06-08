@@ -437,6 +437,23 @@ class PeerService {
     return offer;
   }
 
+  /** Renegotiate after adding/removing tracks mid-session (AV calls, screen share). */
+  async renegotiate(): Promise<RTCSessionDescriptionInit | undefined> {
+    if (!this.peer) return;
+    const state = this.peer.signalingState;
+    if (state === 'have-local-offer') {
+      try {
+        await this.peer.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit);
+      } catch {
+        return;
+      }
+    }
+    if (this.peer.signalingState === 'have-remote-offer') return;
+    const offer = await this.peer.createOffer();
+    await this.peer.setLocalDescription(new RTCSessionDescription(offer));
+    return offer;
+  }
+
   async getAnswer(offer: RTCSessionDescriptionInit): Promise<RTCSessionDescriptionInit | undefined> {
     if (!this.peer) return;
     await this.peer.setRemoteDescription(new RTCSessionDescription(offer));

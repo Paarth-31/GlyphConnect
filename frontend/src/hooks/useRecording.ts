@@ -345,6 +345,9 @@ export const useRecording = () => {
     ]);
 
     const mimeType = [
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4;codecs=h264,aac',
+      'video/mp4',
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
       'video/webm',
@@ -378,7 +381,8 @@ export const useRecording = () => {
         const a    = document.createElement('a');
         const ts   = new Date().toISOString().replace(/[:.]/g, '-');
         a.href     = url;
-        a.download = `RDA-Recording-${sessionId ? sessionId + '-' : ''}${ts}.webm`;
+        const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+        a.download = `RDA-Recording-${sessionId ? sessionId + '-' : ''}${ts}.${ext}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

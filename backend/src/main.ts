@@ -221,14 +221,48 @@
 
 
 
-import { app, BrowserWindow, desktopCapturer, ipcMain, dialog, shell } from 'electron';
+import { app, BrowserWindow, desktopCapturer, ipcMain, dialog, shell, clipboard, session } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import http from 'http';
 import { mouse, keyboard, Point, Button, Key, screen } from '@nut-tree-fork/nut-js';
 
-// Add mapping for keys
-function mapKey(keyName: string): Key | null {
+// Map DOM KeyboardEvent key/code to nut-js Key enum
+function mapKey(keyName?: string, code?: string): Key | null {
+  if (code) {
+    if (code.startsWith('Key') && code.length === 4) {
+      const letter = code.charCodeAt(3) - 65;
+      if (letter >= 0 && letter <= 25) {
+        return [Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G, Key.H, Key.I, Key.J, Key.K, Key.L, Key.M, Key.N, Key.O, Key.P, Key.Q, Key.R, Key.S, Key.T, Key.U, Key.V, Key.W, Key.X, Key.Y, Key.Z][letter];
+      }
+    }
+    if (code.startsWith('Digit') && code.length === 6) {
+      const digit = code.charCodeAt(5) - 48;
+      if (digit >= 0 && digit <= 9) {
+        return [Key.Num0, Key.Num1, Key.Num2, Key.Num3, Key.Num4, Key.Num5, Key.Num6, Key.Num7, Key.Num8, Key.Num9][digit];
+      }
+    }
+    const codeMap: Record<string, Key> = {
+      Enter: Key.Enter, NumpadEnter: Key.Enter,
+      Backspace: Key.Backspace, Tab: Key.Tab, Escape: Key.Escape, Space: Key.Space,
+      ShiftLeft: Key.LeftShift, ShiftRight: Key.RightShift,
+      ControlLeft: Key.LeftControl, ControlRight: Key.RightControl,
+      AltLeft: Key.LeftAlt, AltRight: Key.RightAlt,
+      MetaLeft: Key.LeftSuper, MetaRight: Key.RightSuper, OSLeft: Key.LeftSuper, OSRight: Key.RightSuper,
+      ArrowUp: Key.Up, ArrowDown: Key.Down, ArrowLeft: Key.Left, ArrowRight: Key.Right,
+      Delete: Key.Delete, Home: Key.Home, End: Key.End,
+      PageUp: Key.PageUp, PageDown: Key.PageDown,
+      Insert: Key.Insert, CapsLock: Key.CapsLock,
+      F1: Key.F1, F2: Key.F2, F3: Key.F3, F4: Key.F4, F5: Key.F5, F6: Key.F6,
+      F7: Key.F7, F8: Key.F8, F9: Key.F9, F10: Key.F10, F11: Key.F11, F12: Key.F12,
+      Minus: Key.Minus, Equal: Key.Equal, BracketLeft: Key.LeftBracket, BracketRight: Key.RightBracket,
+      Backslash: Key.Backslash, Semicolon: Key.Semicolon, Quote: Key.Quote,
+      Comma: Key.Comma, Period: Key.Period, Slash: Key.Slash, Backquote: Key.Grave,
+    };
+    if (codeMap[code]) return codeMap[code];
+  }
+
+  if (!keyName) return null;
   const k = keyName.toLowerCase();
   if (k === 'enter') return Key.Enter;
   if (k === 'backspace') return Key.Backspace;
@@ -242,6 +276,9 @@ function mapKey(keyName: string): Key | null {
   if (k === 'arrowdown') return Key.Down;
   if (k === 'arrowleft') return Key.Left;
   if (k === 'arrowright') return Key.Right;
+  if (k === 'delete') return Key.Delete;
+  if (k === 'home') return Key.Home;
+  if (k === 'end') return Key.End;
   if (k === ' ') return Key.Space;
   if (k.length === 1 && k >= 'a' && k <= 'z') {
     const keys = [Key.A, Key.B, Key.C, Key.D, Key.E, Key.F, Key.G, Key.H, Key.I, Key.J, Key.K, Key.L, Key.M, Key.N, Key.O, Key.P, Key.Q, Key.R, Key.S, Key.T, Key.U, Key.V, Key.W, Key.X, Key.Y, Key.Z];
@@ -256,7 +293,7 @@ function mapKey(keyName: string): Key | null {
 
 app.disableHardwareAcceleration();
 
-const isProd = process.env.NODE_ENV === 'production';
+const isProd = app.isPackaged;
 let mainWindow: BrowserWindow | null = null;
 
 // ── [FIX 1] Recordings are always saved to ~/Videos/RDA-Recordings on the
@@ -273,6 +310,16 @@ async function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
     },
+  });
+
+  // Allow camera/microphone/screen capture in the Electron renderer (required on Windows)
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const allowed = ['media', 'display-capture', 'mediaKeySystem', 'clipboard-read', 'clipboard-sanitized-write'];
+    callback(allowed.includes(permission));
+  });
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    const allowed = ['media', 'display-capture', 'mediaKeySystem', 'clipboard-read', 'clipboard-sanitized-write'];
+    return allowed.includes(permission);
   });
 
   // Strip CSP headers so Vite/Keycloak can communicate freely
@@ -348,7 +395,7 @@ async function createWindow() {
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const ext = mimeType.includes('webm') ? 'webm' : 'mp4';
+    const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('webm') ? 'webm' : 'mp4';
     const defaultName = `RDA-Recording-${timestamp}.${ext}`;
     // Auto-save path (no dialog) — goes straight to RECORDINGS_DIR
     const autoPath = path.join(RECORDINGS_DIR, defaultName);
@@ -367,6 +414,7 @@ async function createWindow() {
         title: 'Save Recording',
         defaultPath: autoPath,
         filters: [
+          { name: 'MP4 Video', extensions: ['mp4'] },
           { name: 'WebM Video', extensions: ['webm'] },
           { name: 'All Files', extensions: ['*'] },
         ],
@@ -438,6 +486,11 @@ async function createWindow() {
   // ── [FIX 1] Expose recordings directory path to renderer ──────────────────
   ipcMain.handle('get-recordings-dir', () => RECORDINGS_DIR);
 
+  ipcMain.handle('read-clipboard', () => clipboard.readText());
+  ipcMain.handle('write-clipboard', (_event, text: string) => {
+    if (typeof text === 'string') clipboard.writeText(text);
+  });
+
   // ── [FIX 3] Remote control execution ─────────────────────────────────────────
   ipcMain.on('remote-control', async (_event, action: any) => {
     try {
@@ -481,12 +534,10 @@ async function createWindow() {
         }
         case 'keydown':
         case 'keyup': {
-          if (action.key) {
-            const nutKey = mapKey(action.key);
-            if (nutKey !== null) {
-              if (action.type === 'keydown') await keyboard.pressKey(nutKey);
-              else await keyboard.releaseKey(nutKey);
-            }
+          const nutKey = mapKey(action.key, action.code);
+          if (nutKey !== null) {
+            if (action.type === 'keydown') await keyboard.pressKey(nutKey);
+            else await keyboard.releaseKey(nutKey);
           }
           break;
         }

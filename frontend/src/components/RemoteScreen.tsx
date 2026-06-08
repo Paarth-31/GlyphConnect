@@ -1,5 +1,5 @@
 // frontend/src/components/RemoteScreen.tsx
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 import { ControlAction } from '../hooks/usePeerConnection';
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
 
 export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const setVideoRef = useCallback(
     (node: HTMLVideoElement | null) => {
@@ -19,7 +20,10 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
     [stream]
   );
 
-  // Convert client pixel coords to normalised 0-1 relative to video element
+  useEffect(() => {
+    if (controlEnabled) containerRef.current?.focus();
+  }, [controlEnabled]);
+
   const norm = (e: React.MouseEvent) => {
     const rect = videoRef.current!.getBoundingClientRect();
     return {
@@ -27,6 +31,10 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
       normY: (e.clientY - rect.top) / rect.height,
     };
   };
+
+  const focusContainer = useCallback(() => {
+    containerRef.current?.focus();
+  }, []);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
@@ -40,10 +48,11 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
     (e: React.MouseEvent) => {
       if (!controlEnabled) return;
       e.preventDefault();
+      focusContainer();
       const button = e.button === 2 ? 'right' : e.button === 1 ? 'middle' : 'left';
       onControlEvent({ type: 'mousedown', button, ...norm(e) });
     },
-    [controlEnabled, onControlEvent]
+    [controlEnabled, onControlEvent, focusContainer]
   );
 
   const handleMouseUp = useCallback(
@@ -72,7 +81,8 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
     (e: React.KeyboardEvent) => {
       if (!controlEnabled) return;
       e.preventDefault();
-      onControlEvent({ type: 'keydown', key: e.key });
+      e.stopPropagation();
+      onControlEvent({ type: 'keydown', key: e.key, code: e.code });
     },
     [controlEnabled, onControlEvent]
   );
@@ -80,17 +90,21 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
   const handleKeyUp = useCallback(
     (e: React.KeyboardEvent) => {
       if (!controlEnabled) return;
-      onControlEvent({ type: 'keyup', key: e.key });
+      e.preventDefault();
+      e.stopPropagation();
+      onControlEvent({ type: 'keyup', key: e.key, code: e.code });
     },
     [controlEnabled, onControlEvent]
   );
 
   return (
     <div
+      ref={containerRef}
       className="relative w-full h-full outline-none"
-      tabIndex={0}          // must be focusable to receive keyboard events
+      tabIndex={0}
       onKeyDown={handleKeyDown}
       onKeyUp={handleKeyUp}
+      onMouseDown={focusContainer}
       style={{ cursor: controlEnabled ? 'none' : 'default' }}
     >
       <video
@@ -106,7 +120,7 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
       />
       {controlEnabled && (
         <div className="absolute top-3 right-3 bg-blue-600/80 text-white text-xs px-2 py-1 rounded">
-          Control active
+          Control active — click here then type
         </div>
       )}
     </div>

@@ -68,10 +68,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('select-source', sourceId);
   },
 
-  // Remote control forwarding to robot.js
+  // Remote control forwarding to nut-js
   sendControlAction: (action: object) => {
     ipcRenderer.send('remote-control', action);
   },
+
+  readClipboard: () => ipcRenderer.invoke('read-clipboard'),
+  writeClipboard: (text: string) => ipcRenderer.invoke('write-clipboard', text),
 
   // ── [FIX 1] Recording: auto-saves to ~/Videos/RDA-Recordings ──────────────
   saveRecording: (data: number[], mimeType: string) => {
