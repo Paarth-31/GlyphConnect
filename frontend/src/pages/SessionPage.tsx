@@ -1266,7 +1266,7 @@ import {
   Radio, Square, MousePointer2, ChevronLeft,
   Maximize2, Minimize2, GripVertical, Circle, X,
   Settings2, ShieldCheck, Lock, Unlock, AlertCircle,
-  Clipboard, Wifi, WifiOff, Clock, Activity,
+  Clipboard, Wifi, WifiOff, Clock, Activity, AppWindow,
 } from 'lucide-react';
 import { ChatPanel }         from '../components/ChatPanel';
 import { FileTransferPanel } from '../components/FileTransferPanel';
@@ -1309,6 +1309,10 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
 
   // [RECONNECT] track whether a connection was ever established this session
   const [wasConnected, setWasConnected]     = useState(false);
+
+  // [SOURCE-PICKER] Electron source picker modal state
+  const [showSourcePicker, setShowSourcePicker] = useState(false);
+  const [availableSources, setAvailableSources] = useState<{id: string; name: string; thumbnail: string}[]>([]);
 
   const fileChunkRef  = useRef<((d: ArrayBuffer | string) => void) | null>(null);
   const containerRef  = useRef<HTMLDivElement>(null);
@@ -1408,6 +1412,27 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
     const h = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', h);
     return () => document.removeEventListener('fullscreenchange', h);
+  }, []);
+
+  // [SOURCE-PICKER] Listen for Electron source picker IPC events
+  useEffect(() => {
+    const api = (window as any).electronAPI;
+    if (!api?.onSourcesResponse) return;
+    api.onSourcesResponse((sources: {id: string; name: string; thumbnail: string}[]) => {
+      console.log('[SourcePicker] Received', sources.length, 'sources from Electron');
+      setAvailableSources(sources);
+      setShowSourcePicker(true);
+    });
+  }, []);
+
+  const handleSelectSource = useCallback((sourceId: string) => {
+    const api = (window as any).electronAPI;
+    if (api?.selectSource) {
+      console.log('[SourcePicker] Selected source:', sourceId);
+      api.selectSource(sourceId);
+    }
+    setShowSourcePicker(false);
+    setAvailableSources([]);
   }, []);
 
   // Wire video elements
@@ -1770,6 +1795,61 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
               >
                 Accept
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── [SOURCE-PICKER] Electron screen/window source picker modal ── */}
+      {showSourcePicker && availableSources.length > 0 && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-6">
+          <div className="bg-[#111113] border border-white/10 rounded-2xl p-6 w-full max-w-2xl shadow-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-white font-bold text-base flex items-center gap-2">
+                <Monitor className="w-4 h-4 text-indigo-400" /> Choose what to share
+              </h2>
+              <button
+                onClick={() => { setShowSourcePicker(false); setAvailableSources([]); }}
+                className="p-1.5 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/10"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-white/40 text-xs mb-4">System audio will be captured automatically with your selection.</p>
+            <div className="grid grid-cols-3 gap-3 overflow-y-auto flex-1 pr-1">
+              {availableSources.map(src => (
+                <button
+                  key={src.id}
+                  onClick={() => handleSelectSource(src.id)}
+                  className="group flex flex-col items-center gap-2 p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all"
+                >
+                  <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black/50 border border-white/[0.06]">
+                    <img
+                      src={src.thumbnail}
+                      alt={src.name}
+                      className="w-full h-full object-contain"
+                    />
+                    <div className="absolute inset-0 bg-indigo-500/0 group-hover:bg-indigo-500/10 transition-colors flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-indigo-600/0 group-hover:bg-indigo-600/90 flex items-center justify-center transition-all scale-0 group-hover:scale-100">
+                        <Monitor className="w-4 h-4 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 w-full">
+                    {src.id.startsWith('screen:') 
+                      ? <Monitor className="w-3 h-3 text-white/30 shrink-0" />
+                      : <AppWindow className="w-3 h-3 text-white/30 shrink-0" />
+                    }
+                    <span className="text-[11px] text-white/50 group-hover:text-white/80 truncate font-medium transition-colors">
+                      {src.name}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 mt-4 px-3 py-2 rounded-lg bg-blue-500/5 border border-blue-500/15 text-blue-300/60 text-[11px]">
+              <Volume2 className="w-3.5 h-3.5 shrink-0" />
+              <span>System audio will be included automatically via loopback capture.</span>
             </div>
           </div>
         </div>

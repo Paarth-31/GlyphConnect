@@ -1507,10 +1507,13 @@ export const usePeerConnection = (
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 30, max: 30 } },
         audio: true,
-      });
+        // @ts-ignore — Chromium-only: request system audio in non-Electron browsers
+        systemAudio: 'include',
+      } as any);
       setMyStream(stream);
       const vid = stream.getVideoTracks()[0];
       const aud = stream.getAudioTracks()[0];
+      console.log('[host] screen share tracks — video:', !!vid, ', audio:', !!aud);
       if (vid) {
         peer.addTrack(vid, stream, SCREEN_VIDEO);
         vid.addEventListener('ended', () => {
@@ -1519,7 +1522,12 @@ export const usePeerConnection = (
           peer.removeTrack(SCREEN_AUDIO);
         });
       }
-      if (aud) peer.addTrack(aud, stream, SCREEN_AUDIO);
+      if (aud) {
+        peer.addTrack(aud, stream, SCREEN_AUDIO);
+        console.log('[host] system audio track added successfully');
+      } else {
+        console.warn('[host] No audio track in screen share stream — system audio not captured');
+      }
     } catch (err: any) {
       // Screen share denied — still proceed so data channels open
       console.warn('[host] screen share not granted:', err.message);
@@ -1777,11 +1785,15 @@ export const usePeerConnection = (
     if (!peerSocketIdRef.current) { alert('No viewer connected yet.'); return; }
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 30 } }, audio: true,
-      });
+        video: { frameRate: { ideal: 30 } },
+        audio: true,
+        // @ts-ignore — Chromium-only: request system audio in non-Electron browsers
+        systemAudio: 'include',
+      } as any);
       setMyStream(stream);
       const vid = stream.getVideoTracks()[0];
       const aud = stream.getAudioTracks()[0];
+      console.log('[startScreenShare] tracks — video:', !!vid, ', audio:', !!aud);
       if (vid) {
         peer.addTrack(vid, stream, SCREEN_VIDEO);
         vid.addEventListener('ended', () => {
@@ -1790,7 +1802,12 @@ export const usePeerConnection = (
           peer.removeTrack(SCREEN_AUDIO);
         });
       }
-      if (aud) peer.addTrack(aud, stream, SCREEN_AUDIO);
+      if (aud) {
+        peer.addTrack(aud, stream, SCREEN_AUDIO);
+        console.log('[startScreenShare] system audio track added');
+      } else {
+        console.warn('[startScreenShare] No audio track — system audio not captured');
+      }
       if (peer.peer?.signalingState === 'stable') {
         const offer = await peer.getOffer();
         if (offer) socketRef.current?.emit('call-user', {

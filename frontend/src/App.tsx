@@ -6,7 +6,6 @@ import { RecordingsPage }  from './pages/RecordingsPage';
 import { AddressBookPage } from './pages/AddressBookPage';
 import { SettingsPage, ProfilePage } from './pages/SettingsPage';
 import { useAuth }         from './auth/AuthProvider';
-import { sessionsApi } from './services/api';
 import { recordLocalSession } from './pages/HomePage';
 
 export type Page =
@@ -19,7 +18,6 @@ export default function App() {
     myId: string;
     remoteId: string;
     isHost: boolean;
-    dbSessionId?: string;
   } | null>(null);
 
   // ALL hooks must be called before any conditional return
@@ -29,55 +27,25 @@ export default function App() {
   const isAuthRef = useRef(isAuthenticated);
   isAuthRef.current = isAuthenticated;
 
-  const sessionDataRef = useRef(sessionData);
-  sessionDataRef.current = sessionData;
-
   const navigate = useCallback((p: Page) => setPage(p), []);
 
-  const startSession = useCallback(async (
+  // [FIX] Session DB records are now created exclusively in SessionPage
+  // when the ICE connection is actually established. This prevents duplicates.
+  const startSession = useCallback((
     myId: string,
     remoteId: string,
     isHost: boolean,
   ) => {
     if (remoteId) recordLocalSession(remoteId);
-
-    let dbSessionId: string | undefined;
-
-    if (isAuthRef.current) {
-      // [FIX] Removed automatic favouritesApi.bump(remoteId) — favourites
-      // are now added explicitly by the user via the Address Book UI.
-
-      if (isHost && myId) {
-        try {
-          const session = await sessionsApi.create({
-            hostDisplayId:  myId,
-            screenAudio:    false,
-            videoCall:      false,
-            controlEnabled: false,
-          });
-          dbSessionId = session.id;
-        } catch (err) {
-          console.warn('[App] Could not create DB session:', err);
-        }
-      }
-    }
-
-    setSessionData({ myId, remoteId, isHost, dbSessionId });
+    setSessionData({ myId, remoteId, isHost });
     setPage('session');
-  }, []); // no deps — uses refs internally
+  }, []);
 
-  const endSession = useCallback(async () => {
-    const sd = sessionDataRef.current;
-    if (sd?.dbSessionId && isAuthRef.current) {
-      try {
-        await sessionsApi.end(sd.dbSessionId);
-      } catch (err) {
-        console.warn('[App] Could not end DB session:', err);
-      }
-    }
+  const endSession = useCallback(() => {
+    // SessionPage handles ending the DB session record before calling this
     setSessionData(null);
     setPage('home');
-  }, []); // no deps — uses refs internally
+  }, []);
 
   // ── Conditional renders AFTER all hooks ──────────────────────────────────
 

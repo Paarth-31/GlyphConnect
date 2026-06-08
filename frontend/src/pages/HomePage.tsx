@@ -480,7 +480,7 @@ import {
   Monitor, Copy, RefreshCw, ArrowRight, Star, Clock,
   Book, Film, Settings, User, Wifi, ChevronRight,
   Shield, Zap, Globe, MousePointer2, Check, Loader2,
-  AlertCircle, LogIn, Trash2, Tag,
+  AlertCircle, LogIn, Trash2, Tag, UserPlus,
 } from 'lucide-react';
 
 interface Props {
@@ -612,12 +612,8 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
     const id = remoteId.trim();
     if (!id) return;
     recordLocalSession(id);
-    if (isAuthenticated) {
-      // Bump usage count and add to favourites automatically
-      favouritesApi.bump(id).catch(() => {});
-      // Create session record so Recent Sessions populates
-      sessionsApi.create({ hostDisplayId: id }).catch(() => {});
-    }
+    // [FIX] Session record is now created only in SessionPage when ICE connects.
+    // [FIX] Favourites are added manually via the ★ button, not auto-bumped.
     onStartSession(myId, id, false);
   };
 
@@ -627,10 +623,7 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
 
   const handleQuickConnect = async (id: string) => {
     recordLocalSession(id);
-    if (isAuthenticated) {
-      favouritesApi.bump(id).catch(() => {});
-      sessionsApi.create({ hostDisplayId: id }).catch(() => {});
-    }
+    // [FIX] No auto-bump or premature session creation.
     onStartSession(myId, id, false);
   };
 
@@ -915,7 +908,7 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
 
               {/* Authenticated recent sessions */}
               {isAuthenticated && activeTab === 'recent' && recentSessions.map(s => (
-                <button key={s.id} onClick={() => handleQuickConnect(s.host_display_id)}
+                <div key={s.id}
                   className="group flex items-center gap-4 p-4 bg-[#111113] hover:bg-[#18181c] border border-white/[0.06] hover:border-indigo-500/30 rounded-xl transition-all text-left">
                   <div className="relative">
                     <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
@@ -923,7 +916,7 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
                     </div>
                     {s.status === 'active' && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#111113]" />}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <button onClick={() => handleQuickConnect(s.host_display_id)} className="flex-1 min-w-0 text-left">
                     <p className="text-sm font-semibold text-white/80 group-hover:text-white font-mono">
                       {s.host_display_id.slice(0,3)} {s.host_display_id.slice(3,6)} {s.host_display_id.slice(6,9)} {s.host_display_id.slice(9)}
                     </p>
@@ -931,26 +924,48 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
                     {s.duration_seconds != null && (
                       <p className="text-[10px] text-white/15">{Math.floor(s.duration_seconds / 60)}m {s.duration_seconds % 60}s</p>
                     )}
+                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleAddToFavourites(s.host_display_id); }}
+                      className="p-1.5 rounded-lg text-white/20 hover:text-amber-400 hover:bg-amber-500/10 transition-all opacity-0 group-hover:opacity-100"
+                      title="Add to contacts"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => handleQuickConnect(s.host_display_id)} className="p-1.5 rounded-lg text-white/15 group-hover:text-indigo-400 transition-all">
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-white/15 group-hover:text-indigo-400 transition-all shrink-0" />
-                </button>
+                </div>
               ))}
 
               {/* Guest recent sessions */}
               {!isAuthenticated && activeTab === 'recent' && localSessions.map(s => (
-                <button key={s.remoteId} onClick={() => handleQuickConnect(s.remoteId)}
+                <div key={s.remoteId}
                   className="group flex items-center gap-4 p-4 bg-[#111113] hover:bg-[#18181c] border border-white/[0.06] hover:border-indigo-500/30 rounded-xl transition-all text-left">
                   <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
                     <Monitor className="w-5 h-5 text-white/30 group-hover:text-indigo-400 transition-colors" />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <button onClick={() => handleQuickConnect(s.remoteId)} className="flex-1 min-w-0 text-left">
                     <p className="text-sm font-semibold text-white/80 group-hover:text-white font-mono">
                       {s.remoteId.slice(0,3)} {s.remoteId.slice(3,6)} {s.remoteId.slice(6,9)} {s.remoteId.slice(9)}
                     </p>
                     <p className="text-[10px] text-white/20 mt-0.5">{timeAgo(s.connectedAt)} · this device only</p>
+                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => { alert('Sign in to save contacts.'); }}
+                      className="p-1.5 rounded-lg text-white/20 hover:text-amber-400 hover:bg-amber-500/10 transition-all opacity-0 group-hover:opacity-100"
+                      title="Sign in to save as contact"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                    </button>
+                    <button onClick={() => handleQuickConnect(s.remoteId)} className="p-1.5 rounded-lg text-white/15 group-hover:text-indigo-400 transition-all">
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <ArrowRight className="w-4 h-4 text-white/15 group-hover:text-indigo-400 transition-all shrink-0" />
-                </button>
+                </div>
               ))}
 
               {/* Authenticated favourites with inline label editing */}
