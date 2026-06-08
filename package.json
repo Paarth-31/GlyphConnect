@@ -49,9 +49,7 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "backend/assets/icon.ico",
-      "uninstallerIcon": "backend/assets/icon.ico"
+      "allowToChangeInstallationDirectory": true
     },
     "linux": {
       "target": "AppImage",

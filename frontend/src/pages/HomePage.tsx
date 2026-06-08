@@ -472,7 +472,7 @@
 // [ADDRESS-BOOK] favouritesApi.bump() is called on every connect so use_count
 //   and last_used_at stay current. The favourites tab is now fully wired.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Page } from '../App';
 import { sessionsApi, favouritesApi, type Session, type Favourite } from '../services/api';
 import { useAuth } from '../auth/AuthProvider';
@@ -565,11 +565,23 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
   const [loadingFavs, setLoadingFavs]       = useState(false);
   const [errorRecent, setErrorRecent]       = useState<string | null>(null);
   const [errorFavs, setErrorFavs]           = useState<string | null>(null);
+  const [favToast, setFavToast]             = useState<string | null>(null);
 
   // Device-local data (guests)
   const [localSessions, setLocalSessions]   = useState<LocalSession[]>([]);
 
-  // Load recent sessions
+  const favouriteByRemoteId = useMemo(() => {
+    const map = new Map<string, Favourite>();
+    favourites.forEach(f => map.set(f.remote_id, f));
+    return map;
+  }, [favourites]);
+
+  const showFavToast = (msg: string) => {
+    setFavToast(msg);
+    setTimeout(() => setFavToast(null), 2500);
+  };
+
+  // Load recent sessions (deduped by remote ID)
   useEffect(() => {
     if (!isAuthenticated) {
       setLocalSessions(getLocalSessions());
@@ -578,21 +590,28 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
     setLoadingRecent(true);
     setErrorRecent(null);
     sessionsApi.list(10)
-      .then(setRecentSessions)
+      .then(rows => {
+        const seen = new Set<string>();
+        setRecentSessions(rows.filter(s => {
+          if (seen.has(s.host_display_id)) return false;
+          seen.add(s.host_display_id);
+          return true;
+        }));
+      })
       .catch(e => setErrorRecent(e.message))
       .finally(() => setLoadingRecent(false));
   }, [isAuthenticated]);
 
-  // Load favourites when tab is active
+  // Load favourites whenever signed in (needed for recent-tab star state)
   useEffect(() => {
-    if (activeTab !== 'favourites' || !isAuthenticated) return;
+    if (!isAuthenticated) return;
     setLoadingFavs(true);
     setErrorFavs(null);
     favouritesApi.list()
       .then(setFavourites)
       .catch(e => setErrorFavs(e.message))
       .finally(() => setLoadingFavs(false));
-  }, [activeTab, isAuthenticated]);
+  }, [isAuthenticated]);
 
   const copyId = () => {
     navigator.clipboard.writeText(myId);
@@ -644,15 +663,31 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
     try {
       await favouritesApi.delete(favId);
       setFavourites(prev => prev.filter(f => f.id !== favId));
-    } catch {}
+      showFavToast('Removed from favourites');
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to remove favourite');
+    }
   };
 
-  const handleAddToFavourites = async (remoteId: string) => {
+  const normalizeRemoteId = (id: string) => id.replace(/\s/g, '');
+
+  const handleToggleFavourite = async (remoteId: string) => {
     if (!isAuthenticated) { alert('Sign in to save favourites.'); return; }
+    const id = normalizeRemoteId(remoteId);
+    const existing = favouriteByRemoteId.get(id);
     try {
-      const fav = await favouritesApi.upsert(remoteId);
-      setFavourites(prev => [fav, ...prev.filter(f => f.remote_id !== remoteId)]);
-    } catch {}
+      if (existing) {
+        await favouritesApi.delete(existing.id);
+        setFavourites(prev => prev.filter(f => f.id !== existing.id));
+        showFavToast('Removed from favourites');
+      } else {
+        const fav = await favouritesApi.upsert(id);
+        setFavourites(prev => [fav, ...prev.filter(f => f.remote_id !== id)]);
+        showFavToast('Added to favourites');
+      }
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to update favourites');
+    }
   };
 
   const handleAddToContacts = async (remoteId: string) => {
@@ -660,9 +695,13 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
     const label = window.prompt('Contact name (optional):');
     if (label === null) return;
     try {
-      await favouritesApi.upsert(remoteId, label.trim() || undefined);
+      const fav = await favouritesApi.upsert(normalizeRemoteId(remoteId), label.trim() || undefined);
+      setFavourites(prev => [fav, ...prev.filter(f => f.remote_id !== fav.remote_id)]);
+      showFavToast('Added to contacts');
       onNavigate('addressbook');
-    } catch {}
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to save contact');
+    }
   };
 
   const isLoading = activeTab === 'recent' ? loadingRecent : loadingFavs;
@@ -833,11 +872,11 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
               <div className="flex gap-2">
                 {isAuthenticated && remoteId.trim().length === 11 && (
                   <button
-                    onClick={() => handleAddToFavourites(remoteId.trim())}
-                    className="p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 transition-all"
-                    title="Add to favourites"
+                    onClick={() => handleToggleFavourite(remoteId.trim())}
+                    className={`p-2.5 rounded-xl border transition-all ${favouriteByRemoteId.has(normalizeRemoteId(remoteId.trim())) ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border-amber-500/20'}`}
+                    title={favouriteByRemoteId.has(normalizeRemoteId(remoteId.trim())) ? 'Remove from favourites' : 'Add to favourites'}
                   >
-                    <Star className="w-4 h-4" />
+                    <Star className={`w-4 h-4 ${favouriteByRemoteId.has(normalizeRemoteId(remoteId.trim())) ? 'fill-current' : ''}`} />
                   </button>
                 )}
                 <button
@@ -916,8 +955,10 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
             <div className="grid grid-cols-2 gap-3">
 
               {/* Authenticated recent sessions */}
-              {isAuthenticated && activeTab === 'recent' && recentSessions.map(s => (
-                <div key={s.id}
+              {isAuthenticated && activeTab === 'recent' && recentSessions.map(s => {
+                const isFav = favouriteByRemoteId.has(s.host_display_id) || !!s.favourite_id;
+                return (
+                <div key={s.host_display_id}
                   className="group flex items-center gap-4 p-4 bg-[#111113] hover:bg-[#18181c] border border-white/[0.06] hover:border-indigo-500/30 rounded-xl transition-all text-left">
                   <div className="relative">
                     <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
@@ -926,7 +967,12 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
                     {s.status === 'active' && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#111113]" />}
                   </div>
                   <button onClick={() => handleQuickConnect(s.host_display_id)} className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-semibold text-white/80 group-hover:text-white font-mono">
+                    <p className="text-sm font-semibold text-white/80 group-hover:text-white truncate">
+                      {s.controller_name && s.controller_name !== s.host_display_id
+                        ? s.controller_name
+                        : `${s.host_display_id.slice(0,3)} ${s.host_display_id.slice(3,6)} ${s.host_display_id.slice(6,9)} ${s.host_display_id.slice(9)}`}
+                    </p>
+                    <p className="text-[11px] font-mono text-white/25 mt-0.5">
                       {s.host_display_id.slice(0,3)} {s.host_display_id.slice(3,6)} {s.host_display_id.slice(6,9)} {s.host_display_id.slice(9)}
                     </p>
                     <p className="text-[10px] text-white/20 mt-0.5">{timeAgo(s.start_time)}</p>
@@ -936,11 +982,11 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
                   </button>
                   <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleAddToFavourites(s.host_display_id); }}
-                      className="p-1.5 rounded-lg text-white/30 hover:text-amber-400 hover:bg-amber-500/10 transition-all"
-                      title="Add to favourites"
+                      onClick={(e) => { e.stopPropagation(); handleToggleFavourite(s.host_display_id); }}
+                      className={`p-1.5 rounded-lg transition-all ${isFav ? 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20' : 'text-white/30 hover:text-amber-400 hover:bg-amber-500/10'}`}
+                      title={isFav ? 'Remove from favourites' : 'Add to favourites'}
                     >
-                      <Star className="w-3.5 h-3.5" />
+                      <Star className={`w-3.5 h-3.5 ${isFav ? 'fill-current' : ''}`} />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleAddToContacts(s.host_display_id); }}
@@ -954,7 +1000,7 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
                     </button>
                   </div>
                 </div>
-              ))}
+              );})}
 
               {/* Guest recent sessions */}
               {!isAuthenticated && activeTab === 'recent' && localSessions.map(s => (
@@ -1030,7 +1076,7 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
                     <button onClick={() => handleQuickConnect(f.remote_id)} className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-500/15 transition-all" title="Connect">
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => handleDeleteFav(f.id)} className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Remove">
+                    <button onClick={() => handleDeleteFav(f.id)} className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/10 transition-all" title="Remove from favourites">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -1058,6 +1104,12 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
           </div>
         </main>
       </div>
+
+      {favToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-semibold shadow-lg backdrop-blur">
+          {favToast}
+        </div>
+      )}
     </div>
   );
 }

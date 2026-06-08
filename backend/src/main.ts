@@ -227,6 +227,8 @@ import path from 'path';
 import http from 'http';
 import { mouse, keyboard, Point, Button, Key, screen } from '@nut-tree-fork/nut-js';
 
+keyboard.config.autoDelayMs = 0;
+
 // Map DOM KeyboardEvent key/code to nut-js Key enum
 function mapKey(keyName?: string, code?: string): Key | null {
   if (code) {

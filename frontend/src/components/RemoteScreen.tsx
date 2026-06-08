@@ -11,6 +11,8 @@ interface Props {
 export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const onControlRef = useRef(onControlEvent);
+  onControlRef.current = onControlEvent;
 
   const setVideoRef = useCallback(
     (node: HTMLVideoElement | null) => {
@@ -19,10 +21,6 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
     },
     [stream]
   );
-
-  useEffect(() => {
-    if (controlEnabled) containerRef.current?.focus();
-  }, [controlEnabled]);
 
   const norm = (e: React.MouseEvent) => {
     const rect = videoRef.current!.getBoundingClientRect();
@@ -33,8 +31,32 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
   };
 
   const focusContainer = useCallback(() => {
-    containerRef.current?.focus();
+    containerRef.current?.focus({ preventScroll: true });
   }, []);
+
+  // Capture keyboard at window level so keys work even if focus drifts
+  useEffect(() => {
+    if (!controlEnabled) return;
+
+    const sendKey = (type: 'keydown' | 'keyup', e: KeyboardEvent) => {
+      if (e.repeat && type === 'keydown') return;
+      e.preventDefault();
+      e.stopPropagation();
+      onControlRef.current({ type, key: e.key, code: e.code });
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => sendKey('keydown', e);
+    const onKeyUp = (e: KeyboardEvent) => sendKey('keyup', e);
+
+    window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('keyup', onKeyUp, true);
+    focusContainer();
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('keyup', onKeyUp, true);
+    };
+  }, [controlEnabled, focusContainer]);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
@@ -77,33 +99,11 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
     [controlEnabled, onControlEvent]
   );
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (!controlEnabled) return;
-      e.preventDefault();
-      e.stopPropagation();
-      onControlEvent({ type: 'keydown', key: e.key, code: e.code });
-    },
-    [controlEnabled, onControlEvent]
-  );
-
-  const handleKeyUp = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (!controlEnabled) return;
-      e.preventDefault();
-      e.stopPropagation();
-      onControlEvent({ type: 'keyup', key: e.key, code: e.code });
-    },
-    [controlEnabled, onControlEvent]
-  );
-
   return (
     <div
       ref={containerRef}
       className="relative w-full h-full outline-none"
       tabIndex={0}
-      onKeyDown={handleKeyDown}
-      onKeyUp={handleKeyUp}
       onMouseDown={focusContainer}
       style={{ cursor: controlEnabled ? 'none' : 'default' }}
     >
@@ -119,8 +119,8 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
         onContextMenu={(e) => e.preventDefault()}
       />
       {controlEnabled && (
-        <div className="absolute top-3 right-3 bg-blue-600/80 text-white text-xs px-2 py-1 rounded">
-          Control active — click here then type
+        <div className="absolute top-3 right-3 bg-blue-600/80 text-white text-xs px-2 py-1 rounded pointer-events-none">
+          Control active — type to send keystrokes
         </div>
       )}
     </div>

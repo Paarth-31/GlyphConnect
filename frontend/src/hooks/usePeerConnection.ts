@@ -1245,7 +1245,7 @@ export const usePeerConnection = (
   const [isHost, setIsHost]                       = useState(false);
   const [controlGranted, setControlGranted]       = useState(false);
   const [controlPerms, setControlPerms]           = useState<ControlPerms>({
-    mouse: true, keyboard: true, clipboard: false, fileTransfer: true,
+    mouse: true, keyboard: true, clipboard: true, fileTransfer: true,
   });
   const [connectionQuality, setConnectionQuality] = useState<ConnectionQuality | null>(null);
   const [pendingViewer, setPendingViewer]         = useState<PendingViewer | null>(null);
@@ -1267,8 +1267,8 @@ export const usePeerConnection = (
   const myStreamRef        = useRef<MediaStream | null>(null);
   const callStreamRef      = useRef<MediaStream | null>(null);
   const controlGrantedRef  = useRef(false);
-  const controlPermsRef    = useRef<ControlPerms>({ mouse: true, keyboard: true, clipboard: false, fileTransfer: true });
-  const grantedPermsRef    = useRef<ControlPerms>({ mouse: true, keyboard: true, clipboard: false, fileTransfer: true });
+  const controlPermsRef    = useRef<ControlPerms>({ mouse: true, keyboard: true, clipboard: true, fileTransfer: true });
+  const grantedPermsRef    = useRef<ControlPerms>({ mouse: true, keyboard: true, clipboard: true, fileTransfer: true });
   const pendingViewerRef   = useRef<PendingViewer | null>(null);
   const statsIntervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -1375,25 +1375,32 @@ export const usePeerConnection = (
   }, [applyClipboardText]);
 
   /** Copy local clipboard content to the peer's clipboard */
-  const syncClipboard = useCallback(async () => {
+  const syncClipboard = useCallback(async (): Promise<{ ok: boolean; message: string }> => {
     const text = await readClipboardText();
-    if (!text) return;
+    if (!text) {
+      return { ok: false, message: 'Clipboard is empty or access was denied.' };
+    }
+
+    const payload = JSON.stringify({ type: 'clipboard-sync', text });
 
     const ch = clipboardChannelRef.current;
     if (ch?.readyState === 'open') {
-      ch.send(JSON.stringify({ type: 'clipboard-sync', text }));
-      return;
+      ch.send(payload);
+      return { ok: true, message: 'Clipboard sent to remote.' };
     }
 
     const ctrlCh = controlChannelRef.current;
     if (ctrlCh?.readyState === 'open') {
-      ctrlCh.send(JSON.stringify({ type: 'clipboard-sync', text }));
-      return;
+      ctrlCh.send(payload);
+      return { ok: true, message: 'Clipboard sent to remote.' };
     }
 
     if (peerSocketIdRef.current && socketRef.current?.connected) {
       socketRef.current.emit('clipboard-sync', { to: peerSocketIdRef.current, text });
+      return { ok: true, message: 'Clipboard sent to remote (relay).' };
     }
+
+    return { ok: false, message: 'Not connected — clipboard sync unavailable.' };
   }, [readClipboardText]);
 
   // ── DataChannel: encrypted chat ───────────────────────────────────────────
@@ -1475,14 +1482,26 @@ export const usePeerConnection = (
       } catch {}
     };
     ch.onerror = (e) => console.error('[ctrl]', e);
-    ch.onopen  = () => console.log('[ctrl] open');
+    ch.onopen  = () => {
+      console.log('[ctrl] open');
+      // Host: auto-grant mouse, keyboard & clipboard when control channel is ready
+      if (isHostRef.current && !controlGrantedRef.current) {
+        const perms: ControlPerms = {
+          mouse: true, keyboard: true, clipboard: true, fileTransfer: true,
+        };
+        grantedPermsRef.current = perms;
+        ch.send(JSON.stringify({ type: 'control-grant', perms }));
+        setControlGranted(true);
+        setControlPerms(perms);
+      }
+    };
   }, [applyClipboardText]);
 
   /** Host: grant control to viewer with optional granular permissions */
   const grantControl = useCallback((perms?: Partial<ControlPerms>) => {
     const ch = controlChannelRef.current;
     const fullPerms: ControlPerms = {
-      mouse: true, keyboard: true, clipboard: false, fileTransfer: true,
+      mouse: true, keyboard: true, clipboard: true, fileTransfer: true,
       ...perms,
     };
     if (ch?.readyState === 'open') {
@@ -1800,7 +1819,7 @@ export const usePeerConnection = (
         'connect', 'connection-request', 'connection-accepted',
         'connection-rejected', 'viewer-joined', 'call-user',
         'call-accepted', 'ice-candidate', 'session-ended',
-        'av-call-user', 'av-call-accepted', 'hang-up',
+        'av-call-user', 'av-call-accepted', 'hang-up', 'clipboard-sync',
       ];
       appEvents.forEach(evt => socket.off(evt));
       socket.disconnect();

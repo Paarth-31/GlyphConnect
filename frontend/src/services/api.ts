@@ -569,6 +569,7 @@ export interface Session {
   host_display_id: string;
   controller_socket_id: string | null;
   controller_name: string | null;
+  favourite_id?: string | null;
   status: 'active' | 'ended' | 'error';
   start_time: string;
   end_time: string | null;

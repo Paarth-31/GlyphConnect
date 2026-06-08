@@ -1300,6 +1300,7 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
   const [showAccessControls, setShowAccessControls] = useState(false);
   const [videoQuality, setVideoQuality]     = useState<'480p'|'720p'|'1080p'>('720p');
   const [recordingSavedPath, setRecordingSavedPath] = useState<string | null>(null);
+  const [clipboardToast, setClipboardToast] = useState<{ ok: boolean; message: string } | null>(null);
   const [endingSession, setEndingSession]   = useState(false);
 
   // [SESSION-DB] track the DB session ID so we can end it when the session ends
@@ -1365,12 +1366,18 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
   const { sendFile, handleFileChunk, incomingFile, receivedFiles, outgoing, receiveProgress, downloadFile, formatSize } = useFileTransfer(sendFileChunk);
   fileChunkRef.current = handleFileChunk;
 
-  // [SESSION-DB] Create a session record when the connection is established
+  const handleSyncClipboard = useCallback(async () => {
+    const result = await syncClipboard();
+    setClipboardToast(result);
+    setTimeout(() => setClipboardToast(null), 4000);
+  }, [syncClipboard]);
+
+  // [SESSION-DB] Create a session record when viewer connects to a remote host
   useEffect(() => {
     if (connectionStatus === 'Connected' && !wasConnected) {
       setWasConnected(true);
-      if (isAuthenticated && !sessionDbId) {
-        sessionsApi.create({ hostDisplayId: remoteId || myId })
+      if (isAuthenticated && !sessionDbId && !isHost && remoteId) {
+        sessionsApi.create({ hostDisplayId: remoteId })
           .then(session => {
             setSessionDbId(session.id);
             sessionDbIdRef.current = session.id;
@@ -1378,7 +1385,7 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
           .catch(() => {}); // non-fatal: session DB is optional
       }
     }
-  }, [connectionStatus, wasConnected, isAuthenticated, sessionDbId, remoteId, myId]);
+  }, [connectionStatus, wasConnected, isAuthenticated, sessionDbId, remoteId, isHost]);
 
   // Recording saved toast
   useEffect(() => {
@@ -1719,7 +1726,7 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
               <TBtn icon={screenAudioEnabled ? Volume2 : VolumeX} label="Sys Audio" active={screenAudioEnabled} color="blue" onClick={toggleScreenAudio} />
               <TBtn icon={ShieldCheck} label="Access" color="indigo" onClick={() => setShowAccessControls(true)} />
               {/* [CLIPBOARD] Sync clipboard to remote */}
-              <TBtn icon={Clipboard} label="Sync Clip" color="blue" onClick={syncClipboard} />
+              <TBtn icon={Clipboard} label="Sync Clip" color="blue" onClick={handleSyncClipboard} />
             </>
           ) : (
             <>
@@ -1727,7 +1734,7 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
                 <MousePointer2 className="w-4 h-4" />
                 <span>{controlGranted ? 'Control On' : 'View Only'}</span>
               </div>
-              <TBtn icon={Clipboard} label="Sync Clip" color="blue" onClick={syncClipboard} />
+              <TBtn icon={Clipboard} label="Sync Clip" color="blue" onClick={handleSyncClipboard} />
             </>
           )}
         </div>
@@ -1764,6 +1771,14 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
           <Radio className="w-3.5 h-3.5" />
           Saved: <span className="font-mono text-emerald-400 max-w-xs truncate">{recordingSavedPath}</span>
           <button onClick={() => setRecordingSavedPath(null)} className="ml-1 opacity-50 hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
+        </div>
+      )}
+
+      {clipboardToast && (
+        <div className={`fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-lg backdrop-blur border ${clipboardToast.ok ? 'bg-blue-500/15 border-blue-500/30 text-blue-300' : 'bg-red-500/15 border-red-500/30 text-red-300'}`}>
+          <Clipboard className="w-3.5 h-3.5" />
+          {clipboardToast.message}
+          <button onClick={() => setClipboardToast(null)} className="ml-1 opacity-50 hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
         </div>
       )}
 

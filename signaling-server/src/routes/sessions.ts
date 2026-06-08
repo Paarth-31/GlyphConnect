@@ -353,11 +353,20 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
          s.start_time, s.end_time, s.duration_seconds,
          s.screen_audio, s.video_call, s.control_enabled,
          s.summary, s.ai_summary,
-         COALESCE(f.label, s.host_display_id) AS controller_name
-       FROM sessions s
+         COALESCE(f.label, s.host_display_id) AS controller_name,
+         f.id AS favourite_id
+       FROM (
+         SELECT DISTINCT ON (host_display_id)
+           id, user_id, host_display_id, status,
+           start_time, end_time, duration_seconds,
+           screen_audio, video_call, control_enabled,
+           summary, ai_summary
+         FROM sessions
+         WHERE user_id = $1
+         ORDER BY host_display_id, start_time DESC
+       ) s
        LEFT JOIN favourites f
          ON f.user_id = s.user_id AND f.remote_id = s.host_display_id
-       WHERE s.user_id = $1
        ORDER BY s.start_time DESC
        LIMIT $2`,
       [(req as any).userId, limit]
