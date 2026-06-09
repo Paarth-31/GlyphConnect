@@ -34,15 +34,32 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
     containerRef.current?.focus({ preventScroll: true });
   }, []);
 
-  // Capture keyboard at window level so keys work even if focus drifts
+  const isLocalEditableTarget = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+    const tag = target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (target.isContentEditable) return true;
+    return !!target.closest('[data-local-input]');
+  };
+
+  // Capture keyboard while remote control is active (skip local chat/settings inputs)
   useEffect(() => {
     if (!controlEnabled) return;
 
     const sendKey = (type: 'keydown' | 'keyup', e: KeyboardEvent) => {
+      if (isLocalEditableTarget(e.target)) return;
       if (e.repeat && type === 'keydown') return;
       e.preventDefault();
       e.stopPropagation();
-      onControlRef.current({ type, key: e.key, code: e.code });
+      onControlRef.current({
+        type,
+        key: e.key,
+        code: e.code,
+        ctrlKey: e.ctrlKey,
+        altKey: e.altKey,
+        shiftKey: e.shiftKey,
+        metaKey: e.metaKey,
+      });
     };
 
     const onKeyDown = (e: KeyboardEvent) => sendKey('keydown', e);

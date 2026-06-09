@@ -251,15 +251,22 @@ function mapKey(keyName?: string, code?: string): Key | null {
       ControlLeft: Key.LeftControl, ControlRight: Key.RightControl,
       AltLeft: Key.LeftAlt, AltRight: Key.RightAlt,
       MetaLeft: Key.LeftSuper, MetaRight: Key.RightSuper, OSLeft: Key.LeftSuper, OSRight: Key.RightSuper,
+      ContextMenu: Key.Menu,
       ArrowUp: Key.Up, ArrowDown: Key.Down, ArrowLeft: Key.Left, ArrowRight: Key.Right,
       Delete: Key.Delete, Home: Key.Home, End: Key.End,
       PageUp: Key.PageUp, PageDown: Key.PageDown,
       Insert: Key.Insert, CapsLock: Key.CapsLock,
+      PrintScreen: Key.Print, ScrollLock: Key.ScrollLock, Pause: Key.Pause,
+      NumLock: Key.NumLock,
       F1: Key.F1, F2: Key.F2, F3: Key.F3, F4: Key.F4, F5: Key.F5, F6: Key.F6,
       F7: Key.F7, F8: Key.F8, F9: Key.F9, F10: Key.F10, F11: Key.F11, F12: Key.F12,
       Minus: Key.Minus, Equal: Key.Equal, BracketLeft: Key.LeftBracket, BracketRight: Key.RightBracket,
       Backslash: Key.Backslash, Semicolon: Key.Semicolon, Quote: Key.Quote,
       Comma: Key.Comma, Period: Key.Period, Slash: Key.Slash, Backquote: Key.Grave,
+      Numpad0: Key.Num0, Numpad1: Key.Num1, Numpad2: Key.Num2, Numpad3: Key.Num3, Numpad4: Key.Num4,
+      Numpad5: Key.Num5, Numpad6: Key.Num6, Numpad7: Key.Num7, Numpad8: Key.Num8, Numpad9: Key.Num9,
+      NumpadAdd: Key.Add, NumpadSubtract: Key.Subtract, NumpadMultiply: Key.Multiply,
+      NumpadDivide: Key.Divide, NumpadDecimal: Key.Decimal,
     };
     if (codeMap[code]) return codeMap[code];
   }
@@ -537,9 +544,18 @@ async function createWindow() {
         case 'keydown':
         case 'keyup': {
           const nutKey = mapKey(action.key, action.code);
+          const hasMods = !!(action.ctrlKey || action.altKey || action.metaKey);
           if (nutKey !== null) {
             if (action.type === 'keydown') await keyboard.pressKey(nutKey);
             else await keyboard.releaseKey(nutKey);
+          } else if (
+            action.type === 'keydown' &&
+            !hasMods &&
+            typeof action.key === 'string' &&
+            action.key.length === 1
+          ) {
+            // Printable characters that don't map to a physical key (symbols, Unicode, etc.)
+            await keyboard.type(action.key);
           }
           break;
         }

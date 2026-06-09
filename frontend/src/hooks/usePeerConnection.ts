@@ -1192,6 +1192,7 @@ export interface ControlAction {
   normX?: number; normY?: number;
   button?: 'left' | 'right' | 'middle';
   key?: string; code?: string; scrollX?: number; scrollY?: number;
+  ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean; metaKey?: boolean;
 }
 
 /** Granular permission set sent with control-grant */
@@ -1271,6 +1272,7 @@ export const usePeerConnection = (
   const grantedPermsRef    = useRef<ControlPerms>({ mouse: true, keyboard: true, clipboard: true, fileTransfer: true });
   const pendingViewerRef   = useRef<PendingViewer | null>(null);
   const statsIntervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionEstablishedRef = useRef(false);
 
   useEffect(() => { onFileChunkRef.current    = onFileChunk;       }, [onFileChunk]);
   useEffect(() => { onSessionEndedRef.current  = onSessionEnded;   }, [onSessionEnded]);
@@ -1461,7 +1463,10 @@ export const usePeerConnection = (
         const msg: ControlMsg = JSON.parse(e.data);
         if (msg.type === 'control-grant') {
           setControlGranted(true);
-          if ('perms' in msg && msg.perms) setControlPerms(msg.perms);
+          if ('perms' in msg && msg.perms) {
+            setControlPerms(msg.perms);
+            controlPermsRef.current = msg.perms;
+          }
           return;
         }
         if (msg.type === 'control-revoke')   { setControlGranted(false); return; }
@@ -1547,6 +1552,7 @@ export const usePeerConnection = (
     setConnectionQuality(null);
     setPendingViewer(null);
     setIsWaitingForHost(false);
+    sessionEstablishedRef.current = false;
     stopQualityPolling();
     peer.close();
     cryptoRef.current  = null;
@@ -1554,6 +1560,19 @@ export const usePeerConnection = (
   }, [stopQualityPolling]);
 
   // ── Helper: host initiates connection after accepting viewer ──────────────
+
+  const waitForSignalingStable = useCallback((): Promise<void> => new Promise((resolve) => {
+    if (!peer.peer || peer.peer.signalingState === 'stable') { resolve(); return; }
+    const timeout = setTimeout(resolve, 5000);
+    const check = () => {
+      if (!peer.peer || peer.peer.signalingState === 'stable') {
+        clearTimeout(timeout);
+        peer.peer?.removeEventListener('signalingstatechange', check);
+        resolve();
+      }
+    };
+    peer.peer?.addEventListener('signalingstatechange', check);
+  }), []);
 
   const _initiateConnection = useCallback(async (viewerSocketId: string) => {
     if (!peer.peer || !socketRef.current) return;
@@ -1674,7 +1693,11 @@ export const usePeerConnection = (
       peer.peer.oniceconnectionstatechange = () => {
         const s = peer.peer?.iceConnectionState;
         console.log('[ICE]', s);
-        if (s === 'connected' || s === 'completed') { setStatus('Connected'); startQualityPolling(); }
+        if (s === 'connected' || s === 'completed') {
+          setStatus('Connected');
+          sessionEstablishedRef.current = true;
+          startQualityPolling();
+        }
         if (s === 'failed' || s === 'disconnected') setStatus('Disconnected');
       };
 
@@ -1747,21 +1770,28 @@ export const usePeerConnection = (
       setTimeout(() => onSessionEndedRef.current?.(), 200);
     });
 
-    // VIEWER: incoming screen-share offer from host (after host accepted)
+    // VIEWER: initial screen-share offer, or renegotiation (e.g. after AV call ends).
+    // Only assign viewer role on the first offer — renegotiation must not flip isHost.
     socket.on('incoming-call', async ({ from, signal }) => {
-      console.log('[viewer] incoming-call from', from);
+      console.log('[viewer] incoming-call from', from, 'established:', sessionEstablishedRef.current);
       peerSocketIdRef.current = from;
-      isHostRef.current = false;
-      setIsHost(false);
-      setIsWaitingForHost(false);
+      if (!sessionEstablishedRef.current) {
+        isHostRef.current = false;
+        setIsHost(false);
+        setIsWaitingForHost(false);
+      }
 
       const answer = await peer.getAnswer(signal);
-      if (answer) socket.emit('answer-call', { to: from, signal: answer });
+      if (answer) {
+        sessionEstablishedRef.current = true;
+        socket.emit('answer-call', { to: from, signal: answer });
+      }
     });
 
-    // VIEWER: incoming AV call offer (host started video/audio call)
+    // Callee: incoming AV call offer (peer started video/audio call)
     socket.on('incoming-av-call', async ({ from, signal, withVideo }) => {
-      console.log('[viewer] incoming-av-call from', from, 'video:', withVideo);
+      console.log('[incoming-av-call] from', from, 'video:', withVideo);
+      peerSocketIdRef.current = from;
       if (!callStreamRef.current) {
         let stream: MediaStream | null = null;
         try {
@@ -1788,8 +1818,10 @@ export const usePeerConnection = (
 
     // HOST/VIEWER: answer received
     socket.on('call-accepted', async (data) => {
-      try { await peer.setRemoteDescription(data?.signal ?? data); }
-      catch (e) { console.error('[peer] setRemoteDescription failed:', e); }
+      try {
+        await peer.setRemoteDescription(data?.signal ?? data);
+        sessionEstablishedRef.current = true;
+      } catch (e) { console.error('[peer] setRemoteDescription failed:', e); }
     });
 
     // ICE candidates
@@ -1916,7 +1948,21 @@ export const usePeerConnection = (
   }, []);
 
   const startCall = useCallback(async (withVideo = true) => {
-    if (!peerSocketIdRef.current || !socketRef.current) { alert('No peer connected.'); return; }
+    if (!peerSocketIdRef.current || !socketRef.current) {
+      alert('No peer connected yet.');
+      return;
+    }
+    if (!sessionEstablishedRef.current) {
+      alert('Wait for the remote session to connect before starting a call.');
+      return;
+    }
+    if (callStreamRef.current) {
+      console.warn('[startCall] already in call');
+      return;
+    }
+
+    await waitForSignalingStable();
+
     let stream: MediaStream | null = null;
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -1940,31 +1986,35 @@ export const usePeerConnection = (
     if (mic) peer.addTrack(mic, stream, MIC_AUDIO);
     if (cam && withVideo) peer.addTrack(cam, stream, CAM_VIDEO);
 
+    await waitForSignalingStable();
     const offer = await peer.renegotiate();
     if (offer) socketRef.current.emit('av-call-user', {
       userToCall: peerSocketIdRef.current,
       from: socketRef.current.id,
       signalData: offer, withVideo,
     });
-  }, []);
+  }, [waitForSignalingStable]);
 
   const endCall = useCallback(async () => {
+    if (!callStreamRef.current && !inCall) return;
+
     callStreamRef.current?.getTracks().forEach(t => t.stop());
     peer.removeTrack(MIC_AUDIO);
     peer.removeTrack(CAM_VIDEO);
     setCallStream(null); setRemoteCallStream(null); setInCall(false);
 
-    if (peerSocketIdRef.current && socketRef.current?.connected) {
-      const offer = await peer.renegotiate();
-      if (offer) {
-        socketRef.current.emit('call-user', {
-          userToCall: peerSocketIdRef.current,
-          from: socketRef.current.id,
-          signalData: offer,
-        });
-      }
+    if (!peerSocketIdRef.current || !socketRef.current?.connected || !sessionEstablishedRef.current) return;
+
+    await waitForSignalingStable();
+    const offer = await peer.renegotiate();
+    if (offer) {
+      socketRef.current.emit('call-user', {
+        userToCall: peerSocketIdRef.current,
+        from: socketRef.current.id,
+        signalData: offer,
+      });
     }
-  }, []);
+  }, [inCall, waitForSignalingStable]);
 
   const toggleMic = useCallback(() => {
     setMicEnabled(prev => { const next = !prev; const t = callStreamRef.current?.getAudioTracks()[0]; if (t) t.enabled = next; return next; });

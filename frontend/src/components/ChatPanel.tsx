@@ -266,6 +266,7 @@ export function ChatPanel({ messages, onSend, cryptoReady }: Props) {
       {/* Input */}
       <div className="border-t border-white/[0.06] px-3 py-2.5 flex gap-2 items-center">
         <input
+          data-local-input
           className="flex-1 text-sm bg-white/[0.06] text-white placeholder:text-white/25 outline-none rounded-xl px-3 py-2 border border-white/[0.08] focus:border-indigo-500/40 focus:bg-white/[0.08] transition-all"
           placeholder={cryptoReady ? 'Type a message…' : 'Waiting for peer…'}
           value={input}

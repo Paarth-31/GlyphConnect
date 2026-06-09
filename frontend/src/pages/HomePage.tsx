@@ -692,13 +692,13 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
 
   const handleAddToContacts = async (remoteId: string) => {
     if (!isAuthenticated) { alert('Sign in to save contacts.'); return; }
-    const label = window.prompt('Contact name (optional):');
-    if (label === null) return;
     try {
-      const fav = await favouritesApi.upsert(normalizeRemoteId(remoteId), label.trim() || undefined);
+      const fav = await favouritesApi.upsert(normalizeRemoteId(remoteId));
       setFavourites(prev => [fav, ...prev.filter(f => f.remote_id !== fav.remote_id)]);
       showFavToast('Added to contacts');
-      onNavigate('addressbook');
+      setActiveTab('favourites');
+      setEditingFavId(fav.id);
+      setEditingFavLabel(fav.label ?? '');
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Failed to save contact');
     }
