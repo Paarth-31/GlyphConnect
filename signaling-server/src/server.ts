@@ -361,6 +361,7 @@ const ALLOWED_ORIGINS = [...new Set([
   'http://localhost:3000',
   'http://localhost:4173',
   'https://glyphconnect.github.io',
+  'https://rda-signaling.duckdns.org',   // reset-password page is self-hosted here
 ])];
 
 // Single cors options object — used for both preflight and regular requests
