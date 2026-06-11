@@ -24,6 +24,7 @@
 // // import http from 'http';
 // // import { Server } from 'socket.io';
 // // import express, { Request, Response } from 'express';
+// import path from 'path';
 // // import cors from 'cors';
 // // import { setupSocketEvents }   from './events';
 // // import { getPoolStats }        from './db/client';
@@ -180,6 +181,7 @@
 // import http from 'http';
 // import { Server } from 'socket.io';
 // import express, { Request, Response } from 'express';
+// import path from 'path';
 // import cors from 'cors';
 // import { setupSocketEvents }   from './events';
 // import { getPoolStats }        from './db/client';
@@ -336,6 +338,7 @@ import 'dotenv/config';
 import http from 'http';
 import { Server } from 'socket.io';
 import express, { Request, Response } from 'express';
+import path from 'path';
 import cors from 'cors';
 import { setupSocketEvents }  from './events';
 import { getPoolStats }       from './db/client';
@@ -392,6 +395,14 @@ app.options(/.*/, cors(corsOptions));
 
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true }));
+
+  // ── Static files (reset-password page, etc.) ───────────────────────────
+  app.use(express.static(path.join(__dirname, 'public')));
+
+  // ── Reset password page (served as HTML) ──────────────────────────────
+  app.get('/reset-password', (_: Request, res: Response) => {
+    res.sendFile(path.join(__dirname, 'public', 'reset-password.html'));
+  });
 
   // ── Routes ────────────────────────────────────────────────────────────────
   app.use('/auth',       authRouter);

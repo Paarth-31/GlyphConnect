@@ -29,6 +29,10 @@ interface AuthContextType {
   getToken: () => string | null;
   error: string | null;
   clearError: () => void;
+  // 2FA login flow
+  needs2FA: boolean;
+  verify2FALogin: (code: string) => Promise<void>;
+  cancel2FA: () => void;
 }
 
 // ── Context ───────────────────────────────────────────────────────────────
@@ -44,6 +48,9 @@ const AuthContext = createContext<AuthContextType>({
   getToken: () => null,
   error: null,
   clearError: () => {},
+  needs2FA: false,
+  verify2FALogin: async () => {},
+  cancel2FA: () => {},
 });
 
 // ── Google OAuth2 config ──────────────────────────────────────────────────
@@ -63,6 +70,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError]                     = useState<string | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [, setLoading] = useState(false);
+  // 2FA login state
+  const [needs2FA, setNeeds2FA]       = useState(false);
+  const [tempToken2FA, setTempToken]  = useState<string | null>(null);
 // Add to context value and type if you want to show a spinner
 
   // ── On mount: restore session from localStorage ───────────────────────
@@ -153,10 +163,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
-    const res = await authApi.login(email, password).catch(e => {
+    const res: any = await authApi.login(email, password).catch(e => {
       setError(e.message ?? 'Login failed');
       throw e;
     });
+
+    // If 2FA is required, store temp token and wait for TOTP code
+    if (res.requires2FA) {
+      setTempToken(res.tempToken);
+      setNeeds2FA(true);
+      return; // UI will show TOTP input
+    }
+
     setTokens(res.accessToken, res.refreshToken);
     setUser(res.user as AuthUser);
     setIsAuthenticated(true);
@@ -231,6 +249,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearTokens();
     setUser(null);
     setIsAuthenticated(false);
+    setNeeds2FA(false);
+    setTempToken(null);
+  }, []);
+
+  /** Verify 2FA TOTP code during login */
+  const verify2FALogin = useCallback(async (code: string) => {
+    if (!tempToken2FA) {
+      setError('No 2FA session. Please log in again.');
+      return;
+    }
+    setError(null);
+    try {
+      const res = await authApi.login2FA(tempToken2FA, code);
+      setTokens(res.accessToken, res.refreshToken);
+      setUser(res.user as AuthUser);
+      setIsAuthenticated(true);
+      setNeeds2FA(false);
+      setTempToken(null);
+    } catch (e: any) {
+      setError(e.message ?? 'Invalid authentication code');
+      throw e;
+    }
+  }, [tempToken2FA]);
+
+  /** Cancel the 2FA verification step */
+  const cancel2FA = useCallback(() => {
+    setNeeds2FA(false);
+    setTempToken(null);
+    setError(null);
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
@@ -242,6 +289,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout: doLogout,
       getToken,
       error, clearError,
+      needs2FA, verify2FALogin, cancel2FA,
     }}>
       {children}
     </AuthContext.Provider>

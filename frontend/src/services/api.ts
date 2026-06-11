@@ -502,6 +502,19 @@ export interface AuthResponse {
   refreshToken: string;
 }
 
+export interface TwoFALoginResponse {
+  requires2FA?: boolean;
+  tempToken?: string;
+  user?: AuthUser;
+  accessToken?: string;
+  refreshToken?: string;
+}
+
+export interface TwoFASetupResponse {
+  qrUri: string;
+  secret: string;
+}
+
 export const authApi = {
   register: (email: string, password: string, displayName: string) =>
     post<AuthResponse>('/auth/register', { email, password, displayName }),
@@ -519,6 +532,26 @@ export const authApi = {
 
   changePassword: (currentPassword: string, newPassword: string) =>
     patch<{ ok: boolean }>('/auth/password', { currentPassword, newPassword }),
+
+  // Password reset
+  forgotPassword: (email: string) =>
+    post<{ ok: boolean; message: string }>('/auth/forgot-password', { email }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    post<{ ok: boolean }>('/auth/reset-password', { token, newPassword }),
+
+  // Two-factor authentication
+  setup2FA: () =>
+    post<TwoFASetupResponse>('/auth/2fa/setup', {}),
+
+  verify2FA: (token: string) =>
+    post<{ ok: boolean }>('/auth/2fa/verify', { token }),
+
+  disable2FA: (token: string) =>
+    post<{ ok: boolean }>('/auth/2fa/disable', { token }),
+
+  login2FA: (tempToken: string, totpCode: string) =>
+    post<AuthResponse>('/auth/2fa/login', { tempToken, totpCode }),
 };
 
 // ── Profile ───────────────────────────────────────────────────────────────

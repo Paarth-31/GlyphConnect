@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft, Settings, Shield, Wifi, Video, Bell, Monitor,
   Globe, Lock, ChevronRight, Check, User, Mail, Key, LogOut,
-  Camera, Edit3, Loader2, AlertCircle, Clock, BarChart2
+  Camera, Edit3, Loader2, AlertCircle, Clock, BarChart2, Smartphone, X
 } from 'lucide-react';
 import { profileApi, authApi, type UserProfile, type UserStats, clearTokens } from '../services/api';
+import { QRCodeSVG } from 'qrcode.react';
 
 // ── Shared primitives ──────────────────────────────────────────────────────
 
@@ -105,15 +106,120 @@ function GeneralSettings() {
 }
 
 function SecuritySettings() {
-  const [twoFa, setTwoFa]           = useState(false);
   const [lockOnIdle, setLockOnIdle] = useState(true);
+  const [show2faSetup, setShow2faSetup]   = useState(false);
+  const [qrUri, setQrUri]                 = useState('');
+  const [manualSecret, setManualSecret]   = useState('');
+  const [verifyCode, setVerifyCode]       = useState('');
+  const [setupLoading, setSetupLoading]   = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [setupError, setSetupError]       = useState<string | null>(null);
+  const [setupSuccess, setSetupSuccess]   = useState(false);
+
+  const startSetup = useCallback(async () => {
+    setSetupLoading(true);
+    setSetupError(null);
+    try {
+      const res = await authApi.setup2FA();
+      setQrUri(res.qrUri);
+      setManualSecret(res.secret);
+      setShow2faSetup(true);
+    } catch (e: any) {
+      setSetupError(e.message ?? '2FA setup failed');
+    } finally {
+      setSetupLoading(false);
+    }
+  }, []);
+
+  const verifySetup = useCallback(async () => {
+    setVerifyLoading(true);
+    setSetupError(null);
+    try {
+      await authApi.verify2FA(verifyCode);
+      setSetupSuccess(true);
+      setShow2faSetup(false);
+    } catch (e: any) {
+      setSetupError(e.message ?? 'Invalid code');
+    } finally {
+      setVerifyLoading(false);
+    }
+  }, [verifyCode]);
+
   return (
     <div>
       <h2 className="text-base font-bold mb-5 text-white/90">Security</h2>
       <SettingRow label="End-to-end encryption" sub="All sessions encrypted with AES-256 — always on">
         <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1"><Check className="w-3 h-3" /> Always on</span>
       </SettingRow>
-      <SettingRow label="Two-factor authentication" sub="Extra layer of account security"><Toggle value={twoFa} onChange={setTwoFa} /></SettingRow>
+
+      {/* 2FA Setup */}
+      <div className="py-4 border-b border-white/[0.05]">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-white/80">Two-factor authentication</p>
+            <p className="text-[11px] text-white/30 mt-0.5">Extra layer of account security</p>
+          </div>
+          {setupSuccess ? (
+            <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <Check className="w-3 h-3" /> Enabled
+            </span>
+          ) : (
+            <button onClick={startSetup} disabled={setupLoading}
+              className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors px-2 py-1 rounded-md hover:bg-indigo-500/10 disabled:opacity-40">
+              {setupLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Enable'}
+            </button>
+          )}
+        </div>
+
+        {setupError && (
+          <div className="mt-2.5 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px]">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />{setupError}
+          </div>
+        )}
+
+        {show2faSetup && qrUri && (
+          <div className="mt-3 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-3">
+              <Smartphone className="w-4 h-4 text-indigo-400" />
+              <p className="text-xs font-semibold text-white/70">Scan with your authenticator app</p>
+            </div>
+
+            <div className="flex justify-center mb-3">
+              <div className="p-3 bg-white rounded-xl">
+                <QRCodeSVG value={qrUri} size={160} level="M" />
+              </div>
+            </div>
+
+            <details className="mb-3">
+              <summary className="text-[10px] text-white/25 cursor-pointer hover:text-white/40 transition-colors">
+                Can't scan? Enter code manually
+              </summary>
+              <div className="mt-2 px-3 py-2 bg-black/30 rounded-lg">
+                <code className="text-[11px] text-indigo-300 font-mono break-all select-all">{manualSecret}</code>
+              </div>
+            </details>
+
+            <p className="text-[11px] text-white/35 mb-2">Enter the 6-digit code from your app to verify:</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                value={verifyCode}
+                onChange={e => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onKeyDown={e => { if (e.key === 'Enter' && verifyCode.length === 6) verifySetup(); }}
+                className="flex-1 bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-center font-mono font-bold text-white tracking-widest placeholder:text-white/15 focus:outline-none focus:border-indigo-500/40"
+              />
+              <button onClick={verifySetup} disabled={verifyLoading || verifyCode.length !== 6}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-semibold transition-all">
+                {verifyLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Verify'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       <SettingRow label="Lock on idle" sub="Require auth after 10 mins inactivity"><Toggle value={lockOnIdle} onChange={setLockOnIdle} /></SettingRow>
       <SettingRow label="Session password" sub="Require a password to accept connections">
         <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/40 text-xs border border-white/10 transition-all">
@@ -209,6 +315,16 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState('');
   const [savingName, setSavingName] = useState(false);
+
+  // 2FA state
+  const [show2faSetup, setShow2faSetup] = useState(false);
+  const [qrUri, setQrUri]               = useState('');
+  const [manualSecret, setManualSecret]  = useState('');
+  const [verifyCode, setVerifyCode]      = useState('');
+  const [disableCode, setDisableCode]    = useState('');
+  const [twoFaLoading, setTwoFaLoading]  = useState(false);
+  const [twoFaError, setTwoFaError]      = useState<string | null>(null);
+  const [showDisable, setShowDisable]    = useState(false);
 
   // Password change state
   const [showPwForm, setShowPwForm]   = useState(false);
@@ -416,17 +532,109 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
           </div>
 
           {/* 2FA row */}
-          <div className="flex items-center justify-between px-4 py-3.5">
-            <div className="flex items-center gap-3">
-              <Shield className="w-4 h-4 text-white/30" />
-              <div>
-                <p className="text-sm font-medium text-white/70">Two-factor auth</p>
-                <p className="text-[11px] text-white/25">{profile?.two_fa_enabled ? 'Enabled' : 'Disabled'}</p>
+          <div className="px-4 py-3.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Shield className="w-4 h-4 text-white/30" />
+                <div>
+                  <p className="text-sm font-medium text-white/70">Two-factor auth</p>
+                  <p className="text-[11px] text-white/25">{profile?.two_fa_enabled ? 'Enabled' : 'Disabled'}</p>
+                </div>
               </div>
+              {profile?.two_fa_enabled ? (
+                <button onClick={() => setShowDisable(v => !v)}
+                  className="text-xs text-red-400 hover:text-red-300 font-semibold transition-colors px-2 py-1 rounded-md hover:bg-red-500/10">
+                  Disable
+                </button>
+              ) : (
+                <button onClick={async () => {
+                  setTwoFaLoading(true); setTwoFaError(null);
+                  try {
+                    const res = await authApi.setup2FA();
+                    setQrUri(res.qrUri); setManualSecret(res.secret); setShow2faSetup(true);
+                  } catch (e: any) { setTwoFaError(e.message ?? 'Setup failed'); }
+                  finally { setTwoFaLoading(false); }
+                }} disabled={twoFaLoading}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors px-2 py-1 rounded-md hover:bg-indigo-500/10 disabled:opacity-40">
+                  {twoFaLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Enable'}
+                </button>
+              )}
             </div>
-            <button onClick={() => alert('Two-factor authentication is coming soon. This feature is under development.')} className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors px-2 py-1 rounded-md hover:bg-indigo-500/10">
-              {profile?.two_fa_enabled ? 'Manage' : 'Enable'}
-            </button>
+
+            {twoFaError && (
+              <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px]">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />{twoFaError}
+              </div>
+            )}
+
+            {/* Enable 2FA — QR code setup */}
+            {show2faSetup && qrUri && (
+              <div className="mt-3 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-white/70 flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-indigo-400" /> Scan with your authenticator app
+                  </p>
+                  <button onClick={() => setShow2faSetup(false)} className="text-white/20 hover:text-white/50 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex justify-center mb-3">
+                  <div className="p-3 bg-white rounded-xl">
+                    <QRCodeSVG value={qrUri} size={160} level="M" />
+                  </div>
+                </div>
+                <details className="mb-3">
+                  <summary className="text-[10px] text-white/25 cursor-pointer hover:text-white/40">Can't scan? Enter manually</summary>
+                  <div className="mt-2 px-3 py-2 bg-black/30 rounded-lg">
+                    <code className="text-[11px] text-indigo-300 font-mono break-all select-all">{manualSecret}</code>
+                  </div>
+                </details>
+                <p className="text-[11px] text-white/35 mb-2">Enter 6-digit code to verify:</p>
+                <div className="flex gap-2">
+                  <input type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={verifyCode}
+                    onChange={e => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    onKeyDown={async e => {
+                      if (e.key === 'Enter' && verifyCode.length === 6) {
+                        setTwoFaLoading(true); setTwoFaError(null);
+                        try { await authApi.verify2FA(verifyCode); setShow2faSetup(false); setProfile(p => p ? {...p, two_fa_enabled: true} : p); }
+                        catch (err: any) { setTwoFaError(err.message ?? 'Invalid code'); }
+                        finally { setTwoFaLoading(false); }
+                      }
+                    }}
+                    className="flex-1 bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-center font-mono font-bold text-white tracking-widest placeholder:text-white/15 focus:outline-none focus:border-indigo-500/40" />
+                  <button onClick={async () => {
+                    setTwoFaLoading(true); setTwoFaError(null);
+                    try { await authApi.verify2FA(verifyCode); setShow2faSetup(false); setProfile(p => p ? {...p, two_fa_enabled: true} : p); }
+                    catch (err: any) { setTwoFaError(err.message ?? 'Invalid code'); }
+                    finally { setTwoFaLoading(false); }
+                  }} disabled={twoFaLoading || verifyCode.length !== 6}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-semibold transition-all">
+                    {twoFaLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Verify'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Disable 2FA — requires current code */}
+            {showDisable && profile?.two_fa_enabled && (
+              <div className="mt-3 p-4 rounded-xl bg-red-500/[0.03] border border-red-500/[0.1]">
+                <p className="text-[11px] text-white/40 mb-2">Enter your current authenticator code to disable 2FA:</p>
+                <div className="flex gap-2">
+                  <input type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={disableCode}
+                    onChange={e => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="flex-1 bg-black/40 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-center font-mono font-bold text-white tracking-widest placeholder:text-white/15 focus:outline-none focus:border-red-500/40" />
+                  <button onClick={async () => {
+                    setTwoFaLoading(true); setTwoFaError(null);
+                    try { await authApi.disable2FA(disableCode); setShowDisable(false); setDisableCode(''); setProfile(p => p ? {...p, two_fa_enabled: false} : p); }
+                    catch (err: any) { setTwoFaError(err.message ?? 'Invalid code'); }
+                    finally { setTwoFaLoading(false); }
+                  }} disabled={twoFaLoading || disableCode.length !== 6}
+                    className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white text-xs font-semibold transition-all">
+                    {twoFaLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Disable'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
