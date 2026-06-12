@@ -4,6 +4,8 @@ import path from 'path';
 import http from 'http';
 import { mouse, keyboard, Point, Button, Key, screen } from '@nut-tree-fork/nut-js';
 
+// Electron main process. Manages window lifecycle, system permissions, hardware access, and IPC handlers.
+
 keyboard.config.autoDelayMs = 0;
 
 function mapKey(keyName?: string, code?: string): Key | null {
@@ -104,7 +106,7 @@ async function createWindow() {
   });
 
   mainWindow.webContents.session.webRequest.onHeadersReceived(
-    { urls: ['http://localhost:8180/*', 'http://localhost:5173/*', '*://*/*'] },
+    { urls: ['http://localhost:8180*'] },
     (details, callback) => {
       const headers = { ...details.responseHeaders };
       delete headers['content-security-policy'];
@@ -342,6 +344,15 @@ async function createWindow() {
         reject(new Error('OAuth timeout'));
       }, 5 * 60 * 1000);
     });
+  });
+
+  ipcMain.handle('toggle-fullscreen', () => {
+    if (mainWindow) {
+      const isFs = mainWindow.isFullScreen();
+      mainWindow.setFullScreen(!isFs);
+      return !isFs;
+    }
+    return false;
   });
 
   if (isProd) {

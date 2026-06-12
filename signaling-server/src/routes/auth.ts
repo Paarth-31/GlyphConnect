@@ -320,7 +320,6 @@ router.patch('/password', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-
 router.post('/forgot-password', async (req: Request, res: Response) => {
   const { email } = req.body;
 
@@ -348,7 +347,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await bcrypt.hash(rawToken, 8);
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); 
 
       await queryService(
         `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)

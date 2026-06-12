@@ -38,7 +38,7 @@ export function AddressBookPage({ onBack, onConnect }: Props) {
   const [contacts, setContacts]       = useState<(Favourite | LocalContact)[]>([]);
   const [loading, setLoading]         = useState(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
-  const [useLocal, setUseLocal]       = useState(false); // true = no auth, use localStorage
+  const [useLocal, setUseLocal]       = useState(false); 
   const [search, setSearch]           = useState('');
   const [editingId, setEditingId]     = useState<string | null>(null);
   const [editLabel, setEditLabel]     = useState('');

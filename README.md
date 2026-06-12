@@ -1,8 +1,10 @@
 # GlyphConnect — Remote Desktop Application
 
+![Project Status: Complete](https://img.shields.io/badge/Project%20Status-Complete-success)
+
 > Peer-to-peer remote desktop, screen sharing, encrypted chat, and file transfer — packaged as a cross-platform Electron app.
 
----
+**Note:** This project is now considered **Complete and Stable (v1.0.0)**. All primary functionality, including the fullscreen modes, authentication fixes, code cleanup, and performance optimization, has been fully implemented.
 
 ## Table of Contents
 

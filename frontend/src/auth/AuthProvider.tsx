@@ -4,6 +4,8 @@ import React, {
 } from 'react';
 import { authApi, setTokens, clearTokens, getToken } from '../services/api';
 
+// Provides global authentication state, tokens management, and 2FA handling for the application.
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -27,7 +29,7 @@ interface AuthContextType {
   getToken: () => string | null;
   error: string | null;
   clearError: () => void;
-  // 2FA login flow
+  
   needs2FA: boolean;
   verify2FALogin: (code: string) => Promise<void>;
   cancel2FA: () => void;

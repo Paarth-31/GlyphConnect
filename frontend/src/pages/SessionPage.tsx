@@ -128,14 +128,25 @@ export function SessionPage({ myId, remoteId, onEnd }: Props) {
     if (remoteId) connectToPeer(remoteId);
   }, []);
 
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      containerRef.current?.requestFullscreen().catch(() => {});
+  const toggleFullscreen = useCallback(async () => {
+    const api = (window as any).electronAPI;
+    if (api && api.toggleFullscreen) {
+      const isFs = await api.toggleFullscreen();
+      setIsFullscreen(isFs);
     } else {
-      document.exitFullscreen().catch(() => {});
+      if (!document.fullscreenElement) {
+        containerRef.current?.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
     }
   }, []);
   useEffect(() => {
+    const api = (window as any).electronAPI;
+    if (api && api.toggleFullscreen) {
+      
+      return;
+    }
     const h = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', h);
     return () => document.removeEventListener('fullscreenchange', h);

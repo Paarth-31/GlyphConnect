@@ -1,5 +1,7 @@
 # Security Policy
 
+**Note:** This project is complete (v1.0.0) and is no longer under active development. However, security reports will still be reviewed.
+
 ## Reporting a Vulnerability
 
 If you find a security vulnerability in GlyphCOnnect, **please do not open a public GitHub Issue**.

@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { recordingsApi, type RecordingFile } from '../services/api';
 
+// Manages the user's recorded session videos locally stored on disk.
+
 interface Props {
   onBack: () => void;
 }
@@ -84,7 +86,7 @@ export function RecordingsPage({ onBack }: Props) {
       className="min-h-screen bg-[#0a0a0b] text-white flex flex-col"
       style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
     >
-      {/* Header */}
+      
       <header className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06] bg-black/40">
         <div className="flex items-center gap-4">
           <button
@@ -114,7 +116,6 @@ export function RecordingsPage({ onBack }: Props) {
 
       <main className="flex-1 px-8 py-6 max-w-4xl mx-auto w-full">
 
-        {/* Search */}
         <div className="relative mb-6">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
           <input
@@ -125,7 +126,6 @@ export function RecordingsPage({ onBack }: Props) {
           />
         </div>
 
-        {/* Stats bar */}
         {!loading && recordings.length > 0 && (
           <div className="grid grid-cols-3 gap-3 mb-6">
             {[
@@ -144,7 +144,6 @@ export function RecordingsPage({ onBack }: Props) {
           </div>
         )}
 
-        {/* Loading */}
         {loading && (
           <div className="flex items-center justify-center py-20 gap-2 text-white/30">
             <Loader2 className="w-5 h-5 animate-spin" />
@@ -152,7 +151,6 @@ export function RecordingsPage({ onBack }: Props) {
           </div>
         )}
 
-        {/* Not in Electron */}
         {!loading && !isElectron && (
           <div className="flex flex-col items-center py-20 gap-3 text-white/20">
             <Film className="w-10 h-10 opacity-30" />
@@ -160,7 +158,6 @@ export function RecordingsPage({ onBack }: Props) {
           </div>
         )}
 
-        {/* Empty state */}
         {!loading && isElectron && recordings.length === 0 && (
           <div className="flex flex-col items-center py-20 gap-3 text-white/20">
             <FolderOpen className="w-10 h-10 opacity-30" />
@@ -169,7 +166,6 @@ export function RecordingsPage({ onBack }: Props) {
           </div>
         )}
 
-        {/* No search results */}
         {!loading && isElectron && recordings.length > 0 && filtered.length === 0 && (
           <div className="flex flex-col items-center py-16 gap-2 text-white/20">
             <Film className="w-8 h-8 opacity-30" />
@@ -177,7 +173,6 @@ export function RecordingsPage({ onBack }: Props) {
           </div>
         )}
 
-        {/* Recordings list */}
         {!loading && isElectron && (
           <div className="flex flex-col gap-2">
             {filtered.map(rec => (

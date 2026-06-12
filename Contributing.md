@@ -1,6 +1,8 @@
 # Contributing to GlyphConnect
 
-Thank you for taking the time to contribute. This document covers the development workflow, branch strategy, and code standards.
+**Note:** This project is now complete (v1.0.0) and is no longer under active development. New feature contributions and pull requests are generally no longer accepted, though critical bug fixes may still be considered.
+
+Thank you for taking the time to read this. This document covers the development workflow, branch strategy, and code standards used during the active development phase.
 
 ---
 

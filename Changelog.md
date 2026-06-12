@@ -8,7 +8,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+- No active development. Project is complete.
+
 ### Fixed
+
+- **Fullscreen Toggle** — Added native IPC integration to cleanly toggle Electron fullscreen modes and sync UI state.
+- **Sign Out Flow** — Fixed a development bug on the Profile page that used `window.location.reload()` instead of proper `logout` context handling.
+- **Codebase Comments** — Stripped noisy inline JSX/TS comments and replaced them with high-level functional file markers.
+- **Directory Clean-up** — Removed all stale `.cache`, `dist`, and `out` build outputs from the previous development cycle.
 
 - **Electron always logged in on restart** — `before-quit` hook now clears `rda_access_token` and `rda_refresh_token` from `localStorage` before the app exits
 - **DBus noise on Linux** — `app.commandLine` flags (`no-sandbox`, `disable-dev-shm-usage`) suppress the `org.freedesktop.DBus.StartServiceByName` error that appeared on minimal Linux desktops

@@ -4,6 +4,8 @@ import {
   ArrowRight, Loader2, AlertCircle, CheckCircle, Shield
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthProvider';
+
+// Handles user authentication, including login, registration, and password recovery.
 import { authApi } from '../services/api';
 
 type Mode = 'signin' | 'signup';
@@ -66,7 +68,7 @@ export function SignInPage() {
       className="min-h-screen bg-[#080809] flex items-center justify-center p-4 relative overflow-hidden"
       style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
     >
-      {/* Ambient glow */}
+      
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/8 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-violet-600/8 rounded-full blur-3xl" />
@@ -74,7 +76,6 @@ export function SignInPage() {
 
       <div className="w-full max-w-sm relative z-10">
 
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-2xl shadow-indigo-500/30 mb-3">
             <Monitor className="w-6 h-6 text-white" />
@@ -85,10 +86,8 @@ export function SignInPage() {
           </p>
         </div>
 
-        {/* Card */}
         <div className="bg-[#111113] border border-white/[0.08] rounded-2xl p-6 shadow-2xl">
 
-          {/* Mode tabs */}
           <div className="flex items-center gap-1 p-1 bg-white/[0.04] rounded-xl border border-white/[0.06] mb-6">
             {(['signin', 'signup'] as Mode[]).map(m => (
               <button
@@ -105,7 +104,6 @@ export function SignInPage() {
             ))}
           </div>
 
-          {/* Error */}
           {displayError && (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs mb-4">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
@@ -113,7 +111,6 @@ export function SignInPage() {
             </div>
           )}
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
 
             {mode === 'signup' && (
@@ -206,7 +203,7 @@ export function SignInPage() {
                               try {
                                 await authApi.forgotPassword(resetEmail.trim());
                                 setResetSent(true);
-                              } catch { /* still show success for security */ setResetSent(true); }
+                              } catch {  setResetSent(true); }
                               finally { setResetSending(false); }
                             }}
                             className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-semibold transition-all whitespace-nowrap"
@@ -233,20 +230,18 @@ export function SignInPage() {
             </button>
           </form>
 
-          {/* Divider */}
           <div className="flex items-center gap-3 my-5">
             <div className="flex-1 h-px bg-white/[0.06]" />
             <span className="text-[10px] text-white/20 font-medium">or continue with</span>
             <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
-          {/* Google OAuth2 button */}
           <button
             type="button"
             onClick={loginWithGoogle}
             className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-white/60 hover:text-white text-sm font-medium transition-all"
           >
-            {/* Google icon SVG */}
+            
             <svg className="w-4 h-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -257,7 +252,6 @@ export function SignInPage() {
           </button>
         </div>
 
-        {/* 2FA verification overlay */}
         {needs2FA && (
           <div className="bg-[#111113] border border-white/[0.08] rounded-2xl p-6 shadow-2xl mt-4">
             <div className="flex flex-col items-center gap-3 mb-4">
@@ -317,7 +311,6 @@ export function SignInPage() {
           </div>
         )}
 
-        {/* Continue without account */}
         {!needs2FA && (
           <button
             onClick={() => {

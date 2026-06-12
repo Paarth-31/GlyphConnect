@@ -4,8 +4,11 @@ import {
   Globe, Lock, ChevronRight, Check, User, Mail, Key, LogOut,
   Camera, Edit3, Loader2, AlertCircle, Clock, BarChart2, Smartphone, X
 } from 'lucide-react';
+
+// Manages application settings including network, security, and display preferences.
 import { profileApi, authApi, type UserProfile, type UserStats, clearTokens } from '../services/api';
 import { QRCodeSVG } from 'qrcode.react';
+import { useAuth } from '../auth/AuthProvider';
 
 function SettingRow({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
   return (
@@ -147,7 +150,6 @@ function SecuritySettings() {
         <span className="text-[10px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full flex items-center gap-1"><Check className="w-3 h-3" /> Always on</span>
       </SettingRow>
 
-      {/* 2FA Setup */}
       <div className="py-4 border-b border-white/[0.05]">
         <div className="flex items-center justify-between">
           <div>
@@ -300,6 +302,7 @@ function NotificationSettings() {
   );
 }
 
+// Manages the user's profile, authentication settings, password changes, and 2FA configuration.
 export function ProfilePage({ onBack }: { onBack: () => void }) {
   const [profile, setProfile]   = useState<UserProfile | null>(null);
   const [stats, setStats]       = useState<UserStats | null>(null);
@@ -308,6 +311,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
   const [editingName, setEditingName] = useState(false);
   const [tempName, setTempName] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const { logout } = useAuth();
 
   const [show2faSetup, setShow2faSetup] = useState(false);
   const [qrUri, setQrUri]               = useState('');
@@ -364,10 +368,7 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
   };
 
   const handleSignOut = () => {
-    const rt = localStorage.getItem('rda_refresh_token');
-    if (rt) authApi.logout(rt).catch(() => {});
-    clearTokens();
-    window.location.reload();
+    logout();
   };
 
   const formatDuration = (secs: number): string => {
@@ -401,7 +402,6 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
-        {/* Avatar + name */}
         <div className="flex flex-col items-center mb-8">
           <div className="relative group mb-4">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-2xl font-black shadow-xl shadow-indigo-500/20">
@@ -441,7 +441,6 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
           )}
         </div>
 
-        {/* Stats — live from DB */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-[#111113] border border-white/[0.07] rounded-xl p-4 flex items-center gap-3">
             <Monitor className="w-5 h-5 text-indigo-400 shrink-0" />
@@ -473,9 +472,8 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
           </div>
         </div>
 
-        {/* Account actions */}
         <div className="bg-[#111113] border border-white/[0.07] rounded-xl overflow-hidden mb-4">
-          {/* Email row */}
+          
           <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/[0.05]">
             <div className="flex items-center gap-3">
               <Mail className="w-4 h-4 text-white/30" />
@@ -489,7 +487,6 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
             </button>
           </div>
 
-          {/* Password row */}
           <div>
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/[0.05]">
               <div className="flex items-center gap-3">
@@ -522,7 +519,6 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
             )}
           </div>
 
-          {/* 2FA row */}
           <div className="px-4 py-3.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -558,7 +554,6 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
               </div>
             )}
 
-            {/* Enable 2FA — QR code setup */}
             {show2faSetup && qrUri && (
               <div className="mt-3 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
                 <div className="flex items-center justify-between mb-3">
@@ -606,7 +601,6 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
               </div>
             )}
 
-            {/* Disable 2FA — requires current code */}
             {showDisable && profile?.two_fa_enabled && (
               <div className="mt-3 p-4 rounded-xl bg-red-500/[0.03] border border-red-500/[0.1]">
                 <p className="text-[11px] text-white/40 mb-2">Enter your current authenticator code to disable 2FA:</p>

@@ -9,6 +9,8 @@ import {
   AlertCircle, LogIn, Trash2, Tag, UserPlus,
 } from 'lucide-react';
 
+// Serves as the main dashboard and entry point for initiating or receiving remote sessions.
+
 interface Props {
   onStartSession: (myId: string, remoteId: string, isHost: boolean) => void;
   onNavigate: (page: Page) => void;
@@ -211,7 +213,6 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-white flex flex-col" style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
-      {/* Header */}
       <header className="flex items-center justify-between px-6 py-3 border-b border-white/[0.06] bg-black/40 backdrop-blur-xl select-none">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -244,7 +245,6 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
 
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Sidebar */}
         <aside className="w-52 border-r border-white/[0.05] bg-black/20 flex flex-col py-4 gap-1 px-2 shrink-0">
           {[
             { icon: Monitor,    label: 'Remote Access', tab: null                         as 'recent'|'favourites'|null, page: null            as Page|null },
@@ -292,12 +292,10 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
           </div>
         </aside>
 
-        {/* Main */}
         <main className="flex-1 overflow-y-auto px-8 py-7">
 
           <div className="grid grid-cols-2 gap-5 mb-8">
 
-            {/* Your permanent room ID */}
             <div className="bg-[#111113] border border-white/[0.07] rounded-2xl p-6 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/5 to-transparent pointer-events-none" />
               <div className="flex items-center justify-between mb-2">
@@ -344,7 +342,6 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
               </div>
             </div>
 
-            {/* Connect to remote */}
             <div className="bg-[#111113] border border-white/[0.07] rounded-2xl p-6 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-violet-600/5 to-transparent pointer-events-none" />
               <div className="flex items-center justify-between mb-5">
@@ -386,7 +383,6 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
             </div>
           </div>
 
-          {/* Feature pills */}
           <div className="flex items-center gap-2 mb-8 flex-wrap">
             {[Shield, Zap, Globe, Film].map((Icon, i) => (
               <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.07] text-[11px] font-medium text-white/40">
@@ -396,7 +392,6 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
             ))}
           </div>
 
-          {/* Tabs */}
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-1 p-1 bg-white/[0.04] rounded-lg border border-white/[0.06]">
               {(['recent','favourites'] as const).map(tab => (
@@ -411,7 +406,6 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
             </button>
           </div>
 
-          {/* Guest notice for favourites */}
           {!isAuthenticated && activeTab === 'favourites' && (
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-500/5 border border-indigo-500/15 text-indigo-300 text-sm mb-4">
               <Star className="w-4 h-4 shrink-0" />
@@ -422,21 +416,18 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
             </div>
           )}
 
-          {/* Loading */}
           {isAuthenticated && isLoading && (
             <div className="flex items-center justify-center py-12 gap-2 text-white/30">
               <Loader2 className="w-4 h-4 animate-spin" /><span className="text-sm">Loading...</span>
             </div>
           )}
 
-          {/* Error */}
           {isAuthenticated && !isLoading && error && (
             <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               <AlertCircle className="w-4 h-4 shrink-0" />{error}
             </div>
           )}
 
-          {/* Empty state */}
           {!isLoading && !error && !hasData && (
             <div className="flex flex-col items-center py-12 gap-2 text-white/20">
               {activeTab === 'recent'
@@ -446,11 +437,9 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
             </div>
           )}
 
-          {/* Grid */}
           {!isLoading && !error && (
             <div className="grid grid-cols-2 gap-3">
 
-              {/* Authenticated recent sessions */}
               {isAuthenticated && activeTab === 'recent' && recentSessions.map(s => {
                 const isFav = favouriteByRemoteId.has(s.host_display_id) || !!s.favourite_id;
                 return (
@@ -498,7 +487,6 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
                 </div>
               );})}
 
-              {/* Guest recent sessions */}
               {!isAuthenticated && activeTab === 'recent' && localSessions.map(s => (
                 <div key={s.remoteId}
                   className="group flex items-center gap-4 p-4 bg-[#111113] hover:bg-[#18181c] border border-white/[0.06] hover:border-indigo-500/30 rounded-xl transition-all text-left">
@@ -533,7 +521,6 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
                 </div>
               ))}
 
-              {/* Authenticated favourites with inline label editing */}
               {isAuthenticated && activeTab === 'favourites' && favourites.map(f => (
                 <div key={f.id} className="group flex items-center gap-4 p-4 bg-[#111113] hover:bg-[#18181c] border border-white/[0.06] hover:border-indigo-500/30 rounded-xl transition-all">
                   <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
@@ -581,7 +568,6 @@ export function HomePage({ onStartSession, onNavigate }: Props) {
             </div>
           )}
 
-          {/* Bottom shortcuts */}
           <div className="mt-8 grid grid-cols-3 gap-3">
             {[
               { icon: Film, label: 'Saved Recordings', sub: 'View recorded sessions', page: 'recordings'  as Page, color: 'from-rose-500/10 to-pink-500/10 border-rose-500/15' },

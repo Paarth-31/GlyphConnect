@@ -43,4 +43,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteRecording: (filePath: string) => ipcRenderer.invoke('delete-recording', filePath),
 
   startGoogleOAuth: (url: string) => ipcRenderer.invoke('start-google-oauth', url),
+
+  toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
 });

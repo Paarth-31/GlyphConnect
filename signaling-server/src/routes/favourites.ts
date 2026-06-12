@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { authenticate } from './auth';   // FIX: was authenticateToken
+import { authenticate } from './auth';   
 import { pool } from '../db/client';
 
+// Defines the Express routes for managing users' favourite remote connections.
 const router = Router();
+
+// GET /: Retrieve all favourites for the authenticated user, ordered by usage
 router.get('/', authenticate, async (req: Request, res: Response) => {
   try {
     const { rows } = await pool.query(

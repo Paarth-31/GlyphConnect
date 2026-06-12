@@ -1,5 +1,7 @@
 # Deployment Guide
 
+**Note:** This project is now complete (v1.0.0). The deployment steps below apply to the finalized version of the application.
+
 This document covers SSH access to the EC2 instance, first-time server setup, and how to push code updates to production.
 
 ---
