@@ -1,8 +1,3 @@
-// signaling-server/src/routes/google-auth.ts
-// Handles Google OAuth2 authorization code exchange server-side.
-// The frontend redirects to Google, Google redirects back with ?code=...,
-// the frontend sends that code here, and we exchange it for user info.
-
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { queryService } from '../db/client';
@@ -10,7 +5,6 @@ import { logUserAction } from '../db/admin';
 import { createRefreshToken } from '../db/users';
 
 const router = Router();
-
 const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID     ?? '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? '';
 const FRONTEND_URL         = process.env.FRONTEND_URL ?? 'http://localhost:5173';
@@ -21,8 +15,6 @@ function makeAccessToken(userId: string, role: string): string {
   return jwt.sign({ sub: userId, role }, JWT_SECRET, { expiresIn: JWT_EXPIRES as any });
 }
 
-// POST /auth/google/callback
-// Body: { code: string }  — the authorization code from Google's redirect
 router.post('/google/callback', async (req: Request, res: Response) => {
  const { code, redirectUri } = req.body;
  const effectiveRedirectUri = redirectUri ?? FRONTEND_URL;
@@ -35,7 +27,6 @@ router.post('/google/callback', async (req: Request, res: Response) => {
   }
 
   try {
-    // 1. Exchange code for tokens with Google
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -43,7 +34,7 @@ router.post('/google/callback', async (req: Request, res: Response) => {
         code,
         client_id:     GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri:  effectiveRedirectUri, // must match exactly what Google Console has
+        redirect_uri:  effectiveRedirectUri,
         grant_type:    'authorization_code',
       }),
     });
@@ -55,7 +46,6 @@ router.post('/google/callback', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Google token exchange failed' });
     }
 
-    // 2. Fetch user profile from Google
     const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
@@ -72,9 +62,7 @@ router.post('/google/callback', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Could not retrieve email from Google' });
     }
 
-    // 3. Find or create user in our DB
     let user: any;
-
     const existing = await queryService(
       `SELECT id, email, display_name, avatar_url, role, is_verified, two_fa_enabled, created_at
        FROM users WHERE email = $1 AND is_active = TRUE`,
@@ -82,7 +70,6 @@ router.post('/google/callback', async (req: Request, res: Response) => {
     );
 
     if (existing[0]) {
-      // Update avatar from Google on each login
       user = existing[0];
       await queryService(
         `UPDATE users SET avatar_url = $1, is_verified = TRUE, updated_at = NOW()
@@ -92,8 +79,6 @@ router.post('/google/callback', async (req: Request, res: Response) => {
       user.avatar_url  = profile.picture;
       user.is_verified = true;
     } else {
-      // Create new user — no password (Google-only account)
-      // [FIX L3] Generate an 11-digit permanent_room_id for the new user
       const permRoomId = Array.from({ length: 11 }, () => Math.floor(Math.random() * 10)).join('');
       const rows = await queryService(
         `INSERT INTO users
@@ -120,7 +105,6 @@ router.post('/google/callback', async (req: Request, res: Response) => {
       metadata:  { email: user.email },
     });
 
-    // 4. Issue our own JWT pair
     const accessToken  = makeAccessToken(user.id, user.role);
     const refreshToken = await createRefreshToken(
       user.id,

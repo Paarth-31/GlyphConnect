@@ -24,10 +24,10 @@ export interface OutgoingTransfer {
   done: boolean;
 }
 
-const CHUNK_SIZE = 16 * 1024; // 16KB
+const CHUNK_SIZE = 16 * 1024;
 
 export const useFileTransfer = (
-  sendFileChunk: (data: string | ArrayBuffer) => void  // ← injected from usePeerConnection
+  sendFileChunk: (data: string | ArrayBuffer) => void
 ) => {
   const [incomingFile, setIncomingFile] = useState<TransferringFile | null>(null);
   const [receivedFiles, setReceivedFiles] = useState<ReceivedFile[]>([]);
@@ -74,7 +74,6 @@ export const useFileTransfer = (
       return;
     }
 
-    // Binary chunk
     if (incomingRef.current) {
       incomingRef.current.receivedChunks.push(data);
       incomingRef.current.receivedCount++;
@@ -93,7 +92,6 @@ export const useFileTransfer = (
     try {
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
-      // Send metadata
       sendFileChunk(JSON.stringify({
         type: 'file-meta',
         name: file.name,
@@ -102,7 +100,6 @@ export const useFileTransfer = (
         totalChunks,
       }));
 
-      // Read file and send chunks
       const arrayBuffer = await file.arrayBuffer();
       let chunkIndex = 0;
 

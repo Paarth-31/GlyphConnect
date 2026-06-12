@@ -1,5 +1,3 @@
-// signaling-server/src/db/users.ts
-
 import { pool, queryAsUser, queryService } from './client';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
@@ -48,7 +46,6 @@ export async function verifyPassword(
 
   const user = rows[0];
 
-  // Check lockout
   if (user.locked_until && new Date(user.locked_until) > new Date()) {
     throw new Error('Account temporarily locked due to failed login attempts');
   }
@@ -56,7 +53,6 @@ export async function verifyPassword(
   const ok = await bcrypt.compare(password, user.password_hash);
 
   if (!ok) {
-    // Increment failure count, lock after 5 attempts
     await queryService(
       `UPDATE users
        SET failed_login_count = failed_login_count + 1,
@@ -71,7 +67,6 @@ export async function verifyPassword(
     return null;
   }
 
-  // Reset on success
   await queryService(
     `UPDATE users
      SET failed_login_count = 0,
@@ -99,18 +94,17 @@ export async function createRefreshToken(
   deviceInfo: object,
   ipAddress: string
 ): Promise<string> {
-  const token = uuidv4() + uuidv4(); // 72-char random token
+  const token = uuidv4() + uuidv4();
   const hash = await bcrypt.hash(token, 8);
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-  // [FIX C4] Store the HASH, not the plaintext token
   await queryService(
     `INSERT INTO user_sessions_auth
        (user_id, refresh_token, device_info, ip_address, expires_at)
      VALUES ($1, $2, $3, $4, $5)`,
     [userId, hash, JSON.stringify(deviceInfo), ipAddress, expiresAt]
   );
-  return token; // Return plaintext to client; DB only has the hash
+  return token;
 }
 
 export async function getUserProfile(userId: string) {

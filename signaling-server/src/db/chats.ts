@@ -1,5 +1,3 @@
-// signaling-server/src/db/chats.ts
-
 import { queryService } from './client';
 
 export async function saveMessage(data: {
@@ -57,7 +55,6 @@ export async function searchChats(
   query: string,
   limit = 20
 ) {
-  // Full-text search across all sessions the user participated in
   return queryService(
     `SELECT c.id, c.content, c.sent_at, c.session_id,
             s.host_display_id,

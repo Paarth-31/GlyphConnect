@@ -1,6 +1,3 @@
-// signaling-server/src/db/client.ts
-// Pool setup — import this everywhere instead of creating new clients
-
 import { Pool } from 'pg';
 
 export const pool = new Pool({
@@ -19,7 +16,6 @@ pool.on('error', (err) => {
   console.error('Unexpected pg pool error:', err);
 });
 
-// Helper: run a query with the RLS user context set
 export async function queryAsUser<T = any>(
   userId: string,
   text: string,
@@ -35,7 +31,6 @@ export async function queryAsUser<T = any>(
   }
 }
 
-// Helper: run as service role (bypasses RLS — admin/internal use only)
 export async function queryService<T = any>(
   text: string,
   params?: any[]

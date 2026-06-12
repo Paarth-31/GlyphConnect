@@ -1,4 +1,3 @@
-// frontend/src/components/RemoteScreen.tsx
 import { useRef, useCallback, useEffect } from 'react';
 import { ControlAction } from '../hooks/usePeerConnection';
 
@@ -42,7 +41,6 @@ export function RemoteScreen({ stream, onControlEvent, controlEnabled }: Props) 
     return !!target.closest('[data-local-input]');
   };
 
-  // Capture keyboard while remote control is active (skip local chat/settings inputs)
   useEffect(() => {
     if (!controlEnabled) return;
 

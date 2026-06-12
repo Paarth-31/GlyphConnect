@@ -1,8 +1,5 @@
-// signaling-server/src/db/admin.ts
 import { queryService } from './client';
 import os from 'os';
-
-// ── System health ─────────────────────────────────────────────────────────
 
 export async function recordSystemHealth(
   activeSessions: number,
@@ -32,8 +29,6 @@ export async function recordSystemHealth(
   );
 }
 
-// ── System config ─────────────────────────────────────────────────────────
-
 export async function getSystemConfig(key: string): Promise<any> {
   const rows = await queryService(
     `SELECT value FROM system_config WHERE key = $1`,
@@ -57,9 +52,6 @@ export async function setSystemConfig(
     [key, JSON.stringify(value), updatedBy]
   );
 }
-
-// ── User action logging ───────────────────────────────────────────────────
-// Writes to user_logs table (NOT admin_logs — that table doesn't exist)
 
 export async function logUserAction(data: {
   userId?: string;
@@ -86,13 +78,9 @@ export async function logUserAction(data: {
       ]
     );
   } catch (e: any) {
-    // Never crash the server because of a log write failure
     console.warn('[Admin] Log write failed:', e.message);
   }
 }
-
-// ── Admin dashboard ───────────────────────────────────────────────────────
-// Uses direct queries instead of views (views not created in schema)
 
 export async function getAdminDashboard() {
   const [health, activeSessions, userSummary] = await Promise.all([
@@ -125,8 +113,6 @@ export async function getAdminDashboard() {
     users:    userSummary,
   };
 }
-
-// ── Session limits check ──────────────────────────────────────────────────
 
 export async function checkSessionLimits(
   userId: string

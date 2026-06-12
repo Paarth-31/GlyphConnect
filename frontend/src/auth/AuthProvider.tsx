@@ -4,8 +4,6 @@ import React, {
 } from 'react';
 import { authApi, setTokens, clearTokens, getToken } from '../services/api';
 
-// ── Types ─────────────────────────────────────────────────────────────────
-
 export interface AuthUser {
   id: string;
   email: string;
@@ -35,8 +33,6 @@ interface AuthContextType {
   cancel2FA: () => void;
 }
 
-// ── Context ───────────────────────────────────────────────────────────────
-
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   isLoading: true,
@@ -53,15 +49,8 @@ const AuthContext = createContext<AuthContextType>({
   cancel2FA: () => {},
 });
 
-// ── Google OAuth2 config ──────────────────────────────────────────────────
-// Set these in frontend/.env:
-//   VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
-//   VITE_SERVER_URL=http://localhost:8080
-
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? '';
 const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? 'http://localhost:8080';
-
-// ── Provider ──────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -70,12 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError]                     = useState<string | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [, setLoading] = useState(false);
-  // 2FA login state
   const [needs2FA, setNeeds2FA]       = useState(false);
   const [tempToken2FA, setTempToken]  = useState<string | null>(null);
-// Add to context value and type if you want to show a spinner
-
-  // ── On mount: restore session from localStorage ───────────────────────
 
   useEffect(() => {
     const token = getToken();
@@ -84,14 +69,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Token exists — verify it is still valid by fetching /auth/me
     authApi.me()
       .then((u) => {
     setUser(u as AuthUser);
     setIsAuthenticated(true);
   })
       .catch(async () => {
-        // Try refresh token before giving up
         const rt = localStorage.getItem('rda_refresh_token');
         if (rt) {
           try {
@@ -109,8 +92,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       .finally(() => setIsLoading(false));
   }, []);
-
-  // ── Auto-refresh access token every 12 minutes ────────────────────────
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -130,9 +111,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [isAuthenticated]);
 
-  // ── Google OAuth2 callback handler ────────────────────────────────────
-  // When Google redirects back with ?code=..., exchange it server-side
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
@@ -140,7 +118,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!code || state !== 'google_oauth') return;
 
-    // Remove the query params from URL immediately
     window.history.replaceState({}, document.title, window.location.pathname);
 
     fetch(`${SERVER_URL}/auth/google/callback`, {
@@ -159,8 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
-  // ── Actions ───────────────────────────────────────────────────────────
-
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
     const res: any = await authApi.login(email, password).catch(e => {
@@ -168,11 +143,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw e;
     });
 
-    // If 2FA is required, store temp token and wait for TOTP code
     if (res.requires2FA) {
       setTempToken(res.tempToken);
       setNeeds2FA(true);
-      return; // UI will show TOTP input
+      return;
     }
 
     setTokens(res.accessToken, res.refreshToken);
@@ -193,7 +167,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(true);
   }, []);
 
-  // Redirect to Google's consent screen
   const loginWithGoogle = useCallback(async () => {
   if (!GOOGLE_CLIENT_ID) {
     setError('Google login not configured. Set VITE_GOOGLE_CLIENT_ID in .env');
@@ -202,10 +175,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isElectron = !!(window as any).electronAPI;
 
-  // Build the OAuth URL — redirect_uri points to our local callback server
   const redirectUri = isElectron
-    ? 'http://localhost:5174'      // caught by Electron's local HTTP server
-    : window.location.origin;      // browser: caught by AuthProvider useEffect
+    ? 'http://localhost:5174'
+    : window.location.origin;
 
   const url =
     `https://accounts.google.com/o/oauth2/v2/auth` +
@@ -221,7 +193,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       const code = await (window as any).electronAPI.startGoogleOAuth(url);
-      // Exchange code server-side
       const res = await fetch(`${SERVER_URL}/auth/google/callback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -238,7 +209,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }
   } else {
-    // Browser: just redirect, AuthProvider useEffect handles the callback
     window.location.href = url;
   }
 }, []);
@@ -253,7 +223,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setTempToken(null);
   }, []);
 
-  /** Verify 2FA TOTP code during login */
   const verify2FALogin = useCallback(async (code: string) => {
     if (!tempToken2FA) {
       setError('No 2FA session. Please log in again.');
@@ -273,7 +242,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [tempToken2FA]);
 
-  /** Cancel the 2FA verification step */
   const cancel2FA = useCallback(() => {
     setNeeds2FA(false);
     setTempToken(null);

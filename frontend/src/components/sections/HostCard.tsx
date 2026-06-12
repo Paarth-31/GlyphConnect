@@ -6,7 +6,6 @@ interface HostCardProps {
   handleGenerateId: () => void;
 }
 
-// THIS IS THE LINE THAT WAS CAUSING THE ERROR
 export const HostCard = ({ handleGenerateId }: HostCardProps) => {
   return (
     <Card className="bg-black/40 backdrop-blur-md border-white/10 hover:border-primary/50 transition-all duration-300 group">

@@ -25,7 +25,6 @@ export const FileTransferPanel = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) onSendFile(file);
-    // Reset so same file can be sent again
     e.target.value = '';
   };
 
@@ -34,7 +33,7 @@ export const FileTransferPanel = ({
       <div className="flex items-center justify-between">
         <span className="text-white text-sm font-semibold">File Transfer</span>
 
-        {/* Send button */}
+        {}
         <button
           onClick={() => inputRef.current?.click()}
           disabled={!!outgoing && !outgoing.done}
@@ -50,7 +49,7 @@ export const FileTransferPanel = ({
         />
       </div>
 
-      {/* Outgoing transfer progress */}
+      {}
       {outgoing && (
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between text-xs text-gray-400">
@@ -71,7 +70,7 @@ export const FileTransferPanel = ({
         </div>
       )}
 
-      {/* Incoming transfer progress */}
+      {}
       {incomingFile && (
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between text-xs text-gray-400">
@@ -89,7 +88,7 @@ export const FileTransferPanel = ({
         </div>
       )}
 
-      {/* Received files list */}
+      {}
       {receivedFiles.length > 0 && (
         <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
           <span className="text-gray-500 text-xs">Received files</span>

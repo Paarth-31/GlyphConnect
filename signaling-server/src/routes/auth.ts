@@ -22,7 +22,6 @@ const SERVER_BASE_URL = process.env.SERVER_BASE_URL
     ? 'https://rda-signaling.duckdns.org'
     : 'http://localhost:8080');
 
-// ── Token factory ─────────────────────────────────────────────────────────
 function makeAccessToken(userId: string, role: string): string {
   return jwt.sign(
     { sub: userId, role },
@@ -31,7 +30,6 @@ function makeAccessToken(userId: string, role: string): string {
   );
 }
 
-// ── POST /auth/register ───────────────────────────────────────────────────
 router.post('/register', async (req: Request, res: Response) => {
   const { email, password, displayName } = req.body;
 
@@ -69,7 +67,6 @@ router.post('/register', async (req: Request, res: Response) => {
 
     return res.status(201).json({ user, accessToken, refreshToken });
   } catch (e: any) {
-    // Unique violation → duplicate email
     if (e.code === '23505') {
       return res.status(409).json({ error: 'Email already registered' });
     }
@@ -78,7 +75,6 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-// ── POST /auth/login ──────────────────────────────────────────────────────
 router.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
@@ -108,7 +104,6 @@ router.post('/login', async (req: Request, res: Response) => {
       metadata:  { email: user.email },
     });
 
-    // ── 2FA check: if enabled, return a short-lived temp token ──
     if (user.two_fa_enabled) {
       const tempToken = jwt.sign(
         { sub: user.id, purpose: '2fa_login' },
@@ -132,8 +127,6 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-// ── POST /auth/refresh ────────────────────────────────────────────────────
-// Takes a refreshToken, returns a new accessToken without requiring login
 router.post('/refresh', async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
 
@@ -142,9 +135,6 @@ router.post('/refresh', async (req: Request, res: Response) => {
   }
 
   try {
-    // [FIX C5] Fetch all valid sessions for comparison with bcrypt
-    // Since tokens are now stored as hashes, we can't do exact-match lookup.
-    // Fetch all non-expired sessions and compare each hash.
     const rows = await queryService(
       `SELECT
          usa.id AS session_id,
@@ -160,7 +150,6 @@ router.post('/refresh', async (req: Request, res: Response) => {
          AND u.is_active    = TRUE`,
     );
 
-    // Find the session whose hash matches the submitted token
     let matchedRow: any = null;
     for (const row of rows) {
       const isMatch = await bcrypt.compare(refreshToken, (row as any).token_hash);
@@ -174,7 +163,6 @@ router.post('/refresh', async (req: Request, res: Response) => {
     }
 
     const { user_id, role, email } = matchedRow as any;
-
     const newAccessToken = makeAccessToken(user_id, role);
 
     await logUserAction({
@@ -190,13 +178,10 @@ router.post('/refresh', async (req: Request, res: Response) => {
   }
 });
 
-// ── POST /auth/logout ─────────────────────────────────────────────────────
-// Deletes the refresh token row so it can never be reused
 router.post('/logout', authenticate, async (req: Request, res: Response) => {
   const { refreshToken } = req.body;
 
   try {
-    // [FIX C5] Token is stored as hash — find and delete by bcrypt comparison
     if (refreshToken) {
       const sessions = await queryService(
         `SELECT id, refresh_token AS token_hash FROM user_sessions_auth
@@ -225,7 +210,6 @@ router.post('/logout', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// ── GET /auth/me ──────────────────────────────────────────────────────────
 router.get('/me', authenticate, async (req: Request, res: Response) => {
   try {
     const user = await getUserById((req as any).userId);
@@ -239,8 +223,6 @@ router.get('/me', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// ── GET /auth/sessions ────────────────────────────────────────────────────
-// Lists all active login sessions for the current user (devices)
 router.get('/sessions', authenticate, async (req: Request, res: Response) => {
   try {
     const rows = await queryService(
@@ -258,8 +240,6 @@ router.get('/sessions', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// ── DELETE /auth/sessions/:id ─────────────────────────────────────────────
-// Lets a user revoke a specific device session (remote logout)
 router.delete(
   '/sessions/:id',
   authenticate,
@@ -279,7 +259,6 @@ router.delete(
   }
 );
 
-// ── PATCH /auth/password ──────────────────────────────────────────────────
 router.patch('/password', authenticate, async (req: Request, res: Response) => {
   const { currentPassword, newPassword } = req.body;
 
@@ -295,7 +274,6 @@ router.patch('/password', authenticate, async (req: Request, res: Response) => {
   }
 
   try {
-    // Fetch current hash
     const rows = await queryService(
       `SELECT email, password_hash FROM users WHERE id = $1`,
       [(req as any).userId]
@@ -306,13 +284,11 @@ router.patch('/password', authenticate, async (req: Request, res: Response) => {
 
     const { email } = rows[0] as any;
 
-    // Re-verify current password using the same verifyPassword path
     const valid = await verifyPassword(email, currentPassword);
     if (!valid) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    // Hash and save new password
     const bcrypt = await import('bcryptjs');
     const newHash = await bcrypt.hash(newPassword, 12);
 
@@ -323,7 +299,6 @@ router.patch('/password', authenticate, async (req: Request, res: Response) => {
       [newHash, (req as any).userId]
     );
 
-    // Invalidate ALL refresh tokens for this user — forces re-login on all devices
     await queryService(
       `DELETE FROM user_sessions_auth WHERE user_id = $1`,
       [(req as any).userId]
@@ -346,12 +321,6 @@ router.patch('/password', authenticate, async (req: Request, res: Response) => {
 });
 
 
-// ══════════════════════════════════════════════════════════════════════════
-// PASSWORD RESET
-// ══════════════════════════════════════════════════════════════════════════
-
-// ── POST /auth/forgot-password ────────────────────────────────────────────
-// Always returns 200 to prevent email enumeration
 router.post('/forgot-password', async (req: Request, res: Response) => {
   const { email } = req.body;
 
@@ -360,10 +329,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
   }
 
   try {
-    // Cleanup expired tokens first
     await queryService('SELECT cleanup_expired_reset_tokens()');
-
-    // Check if user exists
     const users = await queryService(
       'SELECT id, email FROM users WHERE email = $1 AND is_active = TRUE',
       [email.toLowerCase().trim()]
@@ -371,19 +337,15 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
     if (users[0]) {
       const user = users[0] as any;
-
-      // Rate limit: max 3 reset requests per hour per user
       const recent = await queryService(
         `SELECT COUNT(*)::int AS cnt FROM password_reset_tokens
          WHERE user_id = $1 AND created_at > NOW() - INTERVAL '1 hour'`,
         [user.id]
       );
       if ((recent[0] as any).cnt >= 3) {
-        // Silently succeed to prevent enumeration
         return res.json({ ok: true, message: 'If an account exists with that email, a reset link has been sent.' });
       }
 
-      // Generate a random token
       const rawToken = crypto.randomBytes(32).toString('hex');
       const tokenHash = await bcrypt.hash(rawToken, 8);
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
@@ -400,7 +362,6 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
         await sendPasswordResetEmail(user.email, resetUrl);
       } catch (emailErr: any) {
         console.error('[Auth] Failed to send reset email:', emailErr.message);
-        // Don't expose email sending failures to the client
       }
 
       await logUserAction({
@@ -411,7 +372,6 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       });
     }
 
-    // Always return success (prevents email enumeration)
     return res.json({
       ok: true,
       message: 'If an account exists with that email, a reset link has been sent.',
@@ -422,7 +382,6 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
   }
 });
 
-// ── POST /auth/reset-password ─────────────────────────────────────────────
 router.post('/reset-password', async (req: Request, res: Response) => {
   const { token, newPassword } = req.body;
 
@@ -434,7 +393,6 @@ router.post('/reset-password', async (req: Request, res: Response) => {
   }
 
   try {
-    // Find all unexpired, unused tokens and check hash
     const rows = await queryService(
       `SELECT id, user_id, token_hash FROM password_reset_tokens
        WHERE expires_at > NOW() AND used_at IS NULL
@@ -453,20 +411,17 @@ router.post('/reset-password', async (req: Request, res: Response) => {
       });
     }
 
-    // Hash new password and update user
     const newHash = await bcrypt.hash(newPassword, 12);
     await queryService(
       'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
       [newHash, matched.user_id]
     );
 
-    // Mark token as used
     await queryService(
       'UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1',
       [matched.id]
     );
 
-    // Invalidate all refresh tokens (force re-login everywhere)
     await queryService(
       'DELETE FROM user_sessions_auth WHERE user_id = $1',
       [matched.user_id]
@@ -485,12 +440,6 @@ router.post('/reset-password', async (req: Request, res: Response) => {
   }
 });
 
-// ══════════════════════════════════════════════════════════════════════════
-// TWO-FACTOR AUTHENTICATION (TOTP)
-// ══════════════════════════════════════════════════════════════════════════
-
-// ── POST /auth/2fa/setup ──────────────────────────────────────────────────
-// Generates a TOTP secret, stores it (not yet enabled), returns QR URI
 router.post('/2fa/setup', authenticate, async (req: Request, res: Response) => {
   try {
     const user = await getUserById((req as any).userId);
@@ -500,7 +449,6 @@ router.post('/2fa/setup', authenticate, async (req: Request, res: Response) => {
       return res.status(400).json({ error: '2FA is already enabled. Disable it first.' });
     }
 
-    // Generate a new TOTP secret
     const secret = new OTPAuth.Secret({ size: 20 });
     const totp = new OTPAuth.TOTP({
       issuer: 'GlyphConnect',
@@ -511,15 +459,14 @@ router.post('/2fa/setup', authenticate, async (req: Request, res: Response) => {
       secret,
     });
 
-    // Store secret in DB (not enabled yet — user must verify first)
     await queryService(
       'UPDATE users SET two_fa_secret = $1 WHERE id = $2',
       [secret.base32, user.id]
     );
 
     return res.json({
-      qrUri: totp.toString(),    // otpauth:// URI for QR code
-      secret: secret.base32,     // manual entry fallback
+      qrUri: totp.toString(),
+      secret: secret.base32,
     });
   } catch (e: any) {
     console.error('[Auth] 2FA setup error:', e.message);
@@ -527,8 +474,6 @@ router.post('/2fa/setup', authenticate, async (req: Request, res: Response) => {
   }
 });
 
-// ── POST /auth/2fa/verify ─────────────────────────────────────────────────
-// User enters a TOTP code to confirm setup — enables 2FA
 router.post('/2fa/verify', authenticate, async (req: Request, res: Response) => {
   const { token: totpCode } = req.body;
 
@@ -537,7 +482,6 @@ router.post('/2fa/verify', authenticate, async (req: Request, res: Response) => 
   }
 
   try {
-    // Get the stored secret
     const rows = await queryService(
       'SELECT two_fa_secret FROM users WHERE id = $1',
       [(req as any).userId]
@@ -547,7 +491,6 @@ router.post('/2fa/verify', authenticate, async (req: Request, res: Response) => 
       return res.status(400).json({ error: 'No 2FA setup in progress. Call /auth/2fa/setup first.' });
     }
 
-    // Verify the TOTP code
     const totp = new OTPAuth.TOTP({
       issuer: 'GlyphConnect',
       label: '',
@@ -562,7 +505,6 @@ router.post('/2fa/verify', authenticate, async (req: Request, res: Response) => 
       return res.status(401).json({ error: 'Invalid code. Please try again.' });
     }
 
-    // Enable 2FA
     await queryService(
       'UPDATE users SET two_fa_enabled = TRUE WHERE id = $1',
       [(req as any).userId]
@@ -581,8 +523,6 @@ router.post('/2fa/verify', authenticate, async (req: Request, res: Response) => 
   }
 });
 
-// ── POST /auth/2fa/disable ────────────────────────────────────────────────
-// Requires current TOTP code to disable 2FA
 router.post('/2fa/disable', authenticate, async (req: Request, res: Response) => {
   const { token: totpCode } = req.body;
 
@@ -632,8 +572,6 @@ router.post('/2fa/disable', authenticate, async (req: Request, res: Response) =>
   }
 });
 
-// ── POST /auth/2fa/login ──────────────────────────────────────────────────
-// Step 2 of login when 2FA is enabled — verify the TOTP code
 router.post('/2fa/login', async (req: Request, res: Response) => {
   const { tempToken, totpCode } = req.body;
 
@@ -642,7 +580,6 @@ router.post('/2fa/login', async (req: Request, res: Response) => {
   }
 
   try {
-    // Verify the temp token
     let payload: any;
     try {
       payload = jwt.verify(tempToken, JWT_SECRET);
@@ -664,7 +601,6 @@ router.post('/2fa/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not found or 2FA not configured' });
     }
 
-    // Verify TOTP
     const totp = new OTPAuth.TOTP({
       issuer: 'GlyphConnect',
       label: '',
@@ -679,7 +615,6 @@ router.post('/2fa/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Invalid authentication code. Please try again.' });
     }
 
-    // Success — issue real tokens
     const accessToken = makeAccessToken(user.id, user.role);
     const refreshToken = await createRefreshToken(
       user.id,
@@ -694,7 +629,6 @@ router.post('/2fa/login', async (req: Request, res: Response) => {
       metadata: { email: user.email },
     });
 
-    // Remove the two_fa_secret from the response
     const { two_fa_secret, ...safeUser } = user;
     return res.json({ user: safeUser, accessToken, refreshToken });
   } catch (e: any) {
@@ -703,8 +637,6 @@ router.post('/2fa/login', async (req: Request, res: Response) => {
   }
 });
 
-// ── Middleware: authenticate ──────────────────────────────────────────────
-// Export this so other routers (sessions, admin) can use it
 export function authenticate(
   req: Request,
   res: Response,

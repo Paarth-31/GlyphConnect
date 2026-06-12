@@ -1,6 +1,3 @@
-// frontend/src/pages/SignInPage.tsx
-// Custom sign-in/sign-up page — no Keycloak, uses own DB + Google OAuth2
-
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Monitor, Mail, Lock, User, Eye, EyeOff,
@@ -22,19 +19,14 @@ export function SignInPage() {
   const [showPw, setShowPw]       = useState(false);
   const [loading, setLoading]     = useState(false);
   const [localError, setLocalErr] = useState<string | null>(null);
-
-  // Forgot password state
   const [showForgotPw, setShowForgotPw]     = useState(false);
   const [resetEmail, setResetEmail]         = useState('');
   const [resetSending, setResetSending]     = useState(false);
   const [resetSent, setResetSent]           = useState(false);
-
-  // 2FA login state
   const [totpCode, setTotpCode]   = useState('');
   const [totpLoading, setTotpLoading] = useState(false);
   const totpRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus TOTP input when 2FA is required
   useEffect(() => {
     if (needs2FA && totpRef.current) totpRef.current.focus();
   }, [needs2FA]);
@@ -62,7 +54,6 @@ export function SignInPage() {
       if (mode === 'signin') await login(email, password);
       else await register(email, password, displayName.trim());
     } catch {
-      // error already set inside AuthProvider
     } finally {
       setLoading(false);
     }

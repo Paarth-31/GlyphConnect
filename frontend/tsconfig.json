@@ -1,11 +1,5 @@
 {
   "compilerOptions": {
-    // ── REMOVED: "composite" and "tsBuildInfoFile" ──────────────────────────
-    // "composite": true requires TypeScript to emit output files, but
-    // "noEmit": true tells it not to — these are mutually exclusive.
-    // Composite mode is for TypeScript project references (monorepo build
-    // caching). Vite handles all bundling here, so composite is not needed.
-
     "target": "ES2020",
     "useDefineForClassFields": true,
     "lib": ["ES2020", "DOM", "DOM.Iterable"],

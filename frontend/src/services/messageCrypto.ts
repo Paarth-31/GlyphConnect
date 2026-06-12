@@ -5,7 +5,6 @@ export interface CryptoSession {
   hmacKey: CryptoKey;
 }
 
-// ── 1. ECDH key generation ────────────────────────────────────────────────
 export async function generateECDHKeyPair(): Promise<{
   keyPair: CryptoKeyPair;
   exportedPublic: JsonWebKey;
@@ -19,7 +18,6 @@ export async function generateECDHKeyPair(): Promise<{
   return { keyPair, exportedPublic };
 }
 
-// ── 2. Import a received public key ──────────────────────────────────────
 export async function importPublicKey(jwk: JsonWebKey): Promise<CryptoKey> {
   return subtle.importKey(
     'jwk',
@@ -30,7 +28,6 @@ export async function importPublicKey(jwk: JsonWebKey): Promise<CryptoKey> {
   );
 }
 
-// ── 3. Internal: derive one key via HKDF ──────────────────────────────────
 async function deriveOneKey(
   privateKey: CryptoKey,
   publicKey: CryptoKey,
@@ -39,14 +36,12 @@ async function deriveOneKey(
   algorithm: AesDerivedKeyParams | HmacImportParams,
   usages: KeyUsage[]
 ): Promise<CryptoKey> {
-  // Step A: ECDH → raw shared bits
   const sharedBits = await subtle.deriveBits(
     { name: 'ECDH', public: publicKey },
     privateKey,
     256
   );
 
-  // Step B: import bits as HKDF source key
   const hkdfKey = await subtle.importKey(
     'raw',
     sharedBits,
@@ -55,7 +50,6 @@ async function deriveOneKey(
     ['deriveKey']
   );
 
-  // Step C: HKDF-SHA256 → final key
   return subtle.deriveKey(
     {
       name: 'HKDF',
@@ -70,7 +64,6 @@ async function deriveOneKey(
   );
 }
 
-// ── 4. Build full crypto session ──────────────────────────────────────────
 export async function buildCryptoSession(
   myPrivateKey: CryptoKey,
   theirPublicKey: CryptoKey
@@ -101,8 +94,6 @@ export async function buildCryptoSession(
   return { aesKey, hmacKey };
 }
 
-// ── 5. Encrypt + sign ─────────────────────────────────────────────────────
-// Wire format: [ 12B IV | ciphertext | 32B HMAC ]
 export async function encryptMessage(
   session: CryptoSession,
   plaintext: string
@@ -116,7 +107,6 @@ export async function encryptMessage(
     encoded
   );
 
-  // HMAC covers IV + ciphertext so IV-swap attacks are also caught
   const ivPlusCipher = new Uint8Array(iv.length + ciphertextBuf.byteLength);
   ivPlusCipher.set(iv, 0);
   ivPlusCipher.set(new Uint8Array(ciphertextBuf), iv.length);
@@ -133,10 +123,9 @@ export async function encryptMessage(
   return result;
 }
 
-// ── 6. Verify HMAC then decrypt ───────────────────────────────────────────
 export async function decryptMessage(
   session: CryptoSession,
-  data: Uint8Array   // accepts Uint8Array — caller wraps ArrayBuffer with new Uint8Array(buf)
+  data: Uint8Array
 ): Promise<string> {
   const IV_LEN = 12;
   const MAC_LEN = 32;

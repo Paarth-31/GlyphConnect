@@ -1,6 +1,3 @@
-// signaling-server/src/services/email.ts
-// Email service for sending password reset links via SMTP (Nodemailer)
-
 import nodemailer from 'nodemailer';
 
 const SMTP_HOST = process.env.SMTP_HOST ?? 'smtp.gmail.com';
@@ -9,7 +6,6 @@ const SMTP_USER = process.env.SMTP_USER ?? '';
 const SMTP_PASS = process.env.SMTP_PASS ?? '';
 const SMTP_FROM = process.env.SMTP_FROM ?? `"GlyphConnect" <${SMTP_USER}>`;
 
-// Lazy-init transporter so the server boots even without SMTP config
 let _transporter: nodemailer.Transporter | null = null;
 
 function getTransporter(): nodemailer.Transporter {
@@ -20,16 +16,13 @@ function getTransporter(): nodemailer.Transporter {
     _transporter = nodemailer.createTransport({
       host: SMTP_HOST,
       port: SMTP_PORT,
-      secure: SMTP_PORT === 465, // true for 465, false for 587
+      secure: SMTP_PORT === 465,
       auth: { user: SMTP_USER, pass: SMTP_PASS },
     });
   }
   return _transporter;
 }
 
-/**
- * Send a password reset email with a styled HTML template.
- */
 export async function sendPasswordResetEmail(
   to: string,
   resetUrl: string

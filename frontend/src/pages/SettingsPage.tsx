@@ -7,8 +7,6 @@ import {
 import { profileApi, authApi, type UserProfile, type UserStats, clearTokens } from '../services/api';
 import { QRCodeSVG } from 'qrcode.react';
 
-// ── Shared primitives ──────────────────────────────────────────────────────
-
 function SettingRow({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between py-4 border-b border-white/[0.05]">
@@ -30,10 +28,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   );
 }
 
-// ── Settings Page ──────────────────────────────────────────────────────────
-
 type SettingSection = 'general' | 'security' | 'network' | 'display' | 'notifications';
-
 export function SettingsPage({ onBack }: { onBack: () => void }) {
   const [section, setSection] = useState<SettingSection>('general');
 
@@ -305,8 +300,6 @@ function NotificationSettings() {
   );
 }
 
-// ── Profile Page ───────────────────────────────────────────────────────────
-
 export function ProfilePage({ onBack }: { onBack: () => void }) {
   const [profile, setProfile]   = useState<UserProfile | null>(null);
   const [stats, setStats]       = useState<UserStats | null>(null);
@@ -316,7 +309,6 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
   const [tempName, setTempName] = useState('');
   const [savingName, setSavingName] = useState(false);
 
-  // 2FA state
   const [show2faSetup, setShow2faSetup] = useState(false);
   const [qrUri, setQrUri]               = useState('');
   const [manualSecret, setManualSecret]  = useState('');
@@ -326,7 +318,6 @@ export function ProfilePage({ onBack }: { onBack: () => void }) {
   const [twoFaError, setTwoFaError]      = useState<string | null>(null);
   const [showDisable, setShowDisable]    = useState(false);
 
-  // Password change state
   const [showPwForm, setShowPwForm]   = useState(false);
   const [currentPw, setCurrentPw]     = useState('');
   const [newPw, setNewPw]             = useState('');

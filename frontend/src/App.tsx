@@ -20,17 +20,11 @@ export default function App() {
     isHost: boolean;
   } | null>(null);
 
-  // ALL hooks must be called before any conditional return
   const { isLoading, isAuthenticated } = useAuth();
-
-  // Keep a ref to isAuthenticated so callbacks don't go stale
   const isAuthRef = useRef(isAuthenticated);
   isAuthRef.current = isAuthenticated;
 
   const navigate = useCallback((p: Page) => setPage(p), []);
-
-  // [FIX] Session DB records are now created exclusively in SessionPage
-  // when the ICE connection is actually established. This prevents duplicates.
   const startSession = useCallback((
     myId: string,
     remoteId: string,
@@ -42,12 +36,9 @@ export default function App() {
   }, []);
 
   const endSession = useCallback(() => {
-    // SessionPage handles ending the DB session record before calling this
     setSessionData(null);
     setPage('home');
   }, []);
-
-  // ── Conditional renders AFTER all hooks ──────────────────────────────────
 
   if (isLoading) {
     return (

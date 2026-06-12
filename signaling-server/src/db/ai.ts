@@ -1,6 +1,3 @@
-// signaling-server/src/db/ai.ts
-// Logs every AI API call for cost tracking & admin dashboard
-
 import { queryService } from './client';
 
 export async function logAiRequest(data: {
@@ -37,7 +34,6 @@ export async function logAiRequest(data: {
 }
 
 export async function getAiCostSummary(adminId: string) {
-  // Admin only — total cost per feature
   return queryService(
     `SELECT feature,
             COUNT(*)         AS requests,

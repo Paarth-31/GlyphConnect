@@ -1,15 +1,3 @@
-// signaling-server/src/db/favourites.ts
-//
-// [FIX 5] upsertFavourite split into two operations:
-//   - addOrUpdateLabel: INSERT or UPDATE label only — use_count NOT incremented
-//     (used by addContact and saveEdit in AddressBookPage)
-//   - bumpUsage: increments use_count and sets last_used_at
-//     (used when actually connecting to a remote peer)
-//
-// This prevents use_count from being inflated every time the label is changed
-// or a contact is added. The route POST /favourites accepts an optional
-// `bump` query param (default false) to call the right function.
-
 import { queryService } from './client';
 
 export async function getFavourites(userId: string) {
@@ -22,7 +10,6 @@ export async function getFavourites(userId: string) {
   );
 }
 
-/** Add a new favourite or update its label. Does NOT bump use_count. */
 export async function upsertFavourite(
   userId: string,
   remoteId: string,
@@ -38,7 +25,6 @@ export async function upsertFavourite(
   );
 }
 
-/** Bump use_count + last_used_at when the user actually connects to a peer. */
 export async function bumpFavouriteUsage(userId: string, remoteId: string) {
   return queryService(
     `INSERT INTO favourites (user_id, remote_id, last_used_at, use_count)

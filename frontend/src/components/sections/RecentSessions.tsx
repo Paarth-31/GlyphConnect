@@ -1,10 +1,3 @@
-// frontend/src/components/sections/RecentSessions.tsx
-//
-// [FIX 4] This component no longer uses hardcoded SESSIONS array.
-//   It reads from localStorage (guest) or the sessions API (authenticated)
-//   via props passed down from HomePage. The data is real and reflects actual
-//   connections made by this user.
-
 import { Monitor } from 'lucide-react';
 
 interface Session {

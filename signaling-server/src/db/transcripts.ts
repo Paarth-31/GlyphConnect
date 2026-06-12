@@ -1,5 +1,3 @@
-// signaling-server/src/db/transcripts.ts
-
 import { queryService } from './client';
 
 export async function saveTranscriptChunk(data: {
@@ -42,7 +40,6 @@ export async function assembleAndSaveFullTranscript(
   keyTopics?: string[],
   actionItems?: string[]
 ) {
-  // Pull all chunks in order, assemble full text
   const chunks = await queryService(
     `SELECT raw_text, cleaned_text, speaker_label,
             start_offset_ms, end_offset_ms

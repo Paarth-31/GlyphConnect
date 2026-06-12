@@ -18,7 +18,7 @@ export const HeroSection = ({ myId }: HeroSectionProps) => {
         Low-latency, peer-to-peer desktop access, re-imagined for the modern web.
       </p>
 
-      {/* --- ANYDESK STYLE ADDRESS BAR --- */}
+      {}
       <div className="w-full max-w-lg relative group">
         <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
         <div className="relative bg-black/80 border border-white/10 rounded-xl p-2 flex items-center gap-4">

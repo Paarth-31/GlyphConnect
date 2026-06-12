@@ -1,5 +1,3 @@
-// signaling-server/src/db/sessions.ts
-
 import { pool, queryService } from './client';
 
 export interface SessionRow {
@@ -60,8 +58,6 @@ export async function endSession(
   sessionId: string,
   summary?: string
 ): Promise<SessionRow | null> {
-  // [FIX 4] Compute duration_seconds = end_time - start_time so Recent Sessions
-  // shows correct durations, and the DB record is fully populated.
   const rows = await queryService<SessionRow>(
     `UPDATE sessions
      SET status           = 'ended',

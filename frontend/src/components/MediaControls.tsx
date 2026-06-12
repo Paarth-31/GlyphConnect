@@ -1,6 +1,3 @@
-// frontend/src/components/MediaControls.tsx
-//import { useRef } from 'react';
-
 interface Props {
   inCall: boolean;
   micEnabled: boolean;
@@ -11,7 +8,7 @@ interface Props {
   onToggleMic: () => void;
   onToggleCam: () => void;
   onToggleScreenAudio: () => void;
-  isHost: boolean; // host = the machine being shared; controller = the viewer
+  isHost: boolean;
 }
 
 export function MediaControls({
@@ -29,7 +26,7 @@ export function MediaControls({
   return (
     <div className="flex flex-wrap items-center gap-3 px-4 py-3 bg-black/40 border border-white/10 rounded-xl">
 
-      {/* Screen audio toggle — only relevant on host side */}
+      {}
       {isHost && (
         <button
           onClick={onToggleScreenAudio}
@@ -44,7 +41,7 @@ export function MediaControls({
         </button>
       )}
 
-      {/* AV call controls */}
+      {}
       {!inCall ? (
         <>
           <button

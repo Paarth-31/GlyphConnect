@@ -1,14 +1,9 @@
-// signaling-server/src/routes/admin.ts
-
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from './auth';
 import { getAdminDashboard, setSystemConfig, logUserAction } from '../db/admin';
 import { queryService } from '../db/client';
 
 const router = Router();
-
-// ── requireAdmin middleware ───────────────────────────────────────────────
-// Chains onto authenticate — checks JWT first, then role
 function requireAdmin(
   req: Request,
   res: Response,
@@ -24,7 +19,6 @@ function requireAdmin(
   });
 }
 
-// ── GET /admin/dashboard ──────────────────────────────────────────────────
 router.get('/dashboard', requireAdmin, async (_req: Request, res: Response) => {
   try {
     const data = await getAdminDashboard();
@@ -35,7 +29,6 @@ router.get('/dashboard', requireAdmin, async (_req: Request, res: Response) => {
   }
 });
 
-// ── GET /admin/users ──────────────────────────────────────────────────────
 router.get('/users', requireAdmin, async (req: Request, res: Response) => {
   try {
     const page   = Math.max(1, parseInt(req.query.page  as string ?? '1'));
@@ -63,7 +56,6 @@ router.get('/users', requireAdmin, async (req: Request, res: Response) => {
       [limit, offset]
     );
 
-    // Total count for pagination
     const countRows = await queryService(
       `SELECT COUNT(*)::INT AS total FROM users`
     );
@@ -80,11 +72,9 @@ router.get('/users', requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
-// ── PATCH /admin/users/:id — toggle active status or change role ──────────
 router.patch('/users/:id', requireAdmin, async (req: Request, res: Response) => {
   const { is_active, role } = req.body ?? {};
 
-  // Prevent superadmin from being demoted by a plain admin
   if (role && (req as any).userRole !== 'superadmin' && role === 'superadmin') {
     return res.status(403).json({ error: 'Only superadmin can grant superadmin role' });
   }
@@ -118,7 +108,6 @@ router.patch('/users/:id', requireAdmin, async (req: Request, res: Response) => 
   }
 });
 
-// ── GET /admin/config ─────────────────────────────────────────────────────
 router.get('/config', requireAdmin, async (_req: Request, res: Response) => {
   try {
     const rows = await queryService(
@@ -133,7 +122,6 @@ router.get('/config', requireAdmin, async (_req: Request, res: Response) => {
   }
 });
 
-// ── PATCH /admin/config/:key ──────────────────────────────────────────────
 router.patch('/config/:key', requireAdmin, async (req: Request, res: Response) => {
   const { value } = req.body ?? {};
 
@@ -157,7 +145,6 @@ router.patch('/config/:key', requireAdmin, async (req: Request, res: Response) =
   }
 });
 
-// ── GET /admin/health/history ─────────────────────────────────────────────
 router.get('/health/history', requireAdmin, async (req: Request, res: Response) => {
   try {
     const hours = Math.min(168, parseInt(req.query.hours as string ?? '24'));
@@ -178,7 +165,6 @@ router.get('/health/history', requireAdmin, async (req: Request, res: Response) 
   }
 });
 
-// ── GET /admin/logs ───────────────────────────────────────────────────────
 router.get('/logs', requireAdmin, async (req: Request, res: Response) => {
   try {
     const {
@@ -219,7 +205,6 @@ router.get('/logs', requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
-// ── GET /admin/sessions — all sessions across all users ───────────────────
 router.get('/sessions', requireAdmin, async (req: Request, res: Response) => {
   try {
     const limit  = Math.min(100, parseInt(req.query.limit as string ?? '50'));
@@ -255,7 +240,6 @@ router.get('/sessions', requireAdmin, async (req: Request, res: Response) => {
   }
 });
 
-// ── GET /admin/stats — quick numbers for a summary card ──────────────────
 router.get('/stats', requireAdmin, async (_req: Request, res: Response) => {
   try {
     const [users, sessions, health] = await Promise.all([
