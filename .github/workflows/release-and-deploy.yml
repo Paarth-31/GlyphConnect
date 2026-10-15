@@ -1,0 +1,114 @@
+name: Build Desktop Release & Deploy Web (v2.0)
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers whenever you push a tag like v2.0 or v2.0.0
+  workflow_dispatch: # Allows manual trigger from the Actions tab
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  # -------------------------------------------------------------
+  # Job 1: Build & Deploy Frontend to GitHub Pages
+  # -------------------------------------------------------------
+  deploy-web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Frontend Dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build Web App
+        working-directory: ./frontend
+        env:
+          VITE_SERVER_URL: 'https://rda-signaling.duckdns.org'
+        run: npm run build
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Points to the build output directory (backend/renderer/out)
+          path: './backend/renderer/out'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  # -------------------------------------------------------------
+  # Job 2: Build Electron Desktop Installers (.exe & .AppImage)
+  # -------------------------------------------------------------
+  build-desktop:
+    needs: deploy-web
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # System dependencies for Ubuntu (Linux desktop build)
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxtst-dev libpng++-dev libx11-dev libxinerama-dev libxext-dev
+
+      - name: Install Project Dependencies
+        run: |
+          npm ci
+          cd frontend && npm ci
+          cd ../backend && npm ci
+
+      - name: Build Frontend & Backend
+        run: |
+          npm run build:frontend
+          npm run build:backend
+
+      - name: Package Windows (.exe)
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win --x64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package Linux (.AppImage)
+        if: runner.os == 'Linux'
+        run: npx electron-builder --linux AppImage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Installers to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*.exe
+            dist/*.AppImage
+          name: GlyphConnect ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
