@@ -1,6 +1,6 @@
 {
   "name": "GlyphConnect",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "P2P remote desktop application with E2E encrypted screen sharing, chat and file transfer",
   "author": "Paarth & Aayushi",
   "private": true,

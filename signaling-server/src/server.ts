@@ -19,7 +19,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
 
 const ALLOWED_ORIGINS = [...new Set([
   FRONTEND_URL,
-  'http://localhost:5173',
+  'http://localhost:5173',//frontend.
   'http://localhost:3000',
   'http://localhost:4173',
   'https://glyphconnect.github.io',
